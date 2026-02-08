@@ -122,21 +122,23 @@ coinsight/
 
 ## Screenshots
 
-> Application UI previews will be added after public deployment.
+### Login Page
+![Login](./screenshots/login.png)
 
-**Planned Screenshots:**
-- Login Page
-- Dashboard Overview
-- Portfolio Management
-- Transaction History
-- Notification Center
-- Settings & Configuration
-
-<!-- Example for future use:
-![Login Page](./screenshots/login.png)
+### Dashboard Overview
 ![Dashboard](./screenshots/dashboard.png)
+
+### Portfolio Page
 ![Portfolio](./screenshots/portfolio.png)
--->
+
+### Transaction History
+![Transactions](./screenshots/transactions.png)
+
+### Notifications Panel
+![Notifications](./screenshots/notifications.png)
+
+### Settings & About
+![Settings](./screenshots/settings.png)
 
 ## Admin Login (Prototype)
 
