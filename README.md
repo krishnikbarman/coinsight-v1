@@ -1,114 +1,87 @@
 # CoinSight
 
-A professional cryptocurrency portfolio management dashboard built with React, Vite, and Tailwind CSS. Track your crypto investments in real-time with live market data, comprehensive analytics, and an intuitive user interface.
+A professional cryptocurrency portfolio management dashboard built with React, Vite, and Tailwind CSS for real-time investment tracking and analytics.
 
-## Overview
+## Description
 
-CoinSight is a production-ready web application designed to help cryptocurrency investors monitor and analyze their portfolios. The platform fetches real-time price data from CoinGecko API, calculates portfolio metrics automatically, and provides actionable insights through visual analytics and intelligent notifications.
+CoinSight is a production-ready web application that enables cryptocurrency investors to monitor and analyze their portfolios in real-time. The platform integrates with CoinGecko API to fetch live market data, calculates portfolio metrics automatically, and provides comprehensive insights through interactive visualizations and intelligent notifications.
 
 ## Features
 
-**Portfolio Management**
-- Add and manage cryptocurrency holdings with aggregated position tracking
-- Buy and sell functionality with automatic position averaging
-- Real-time price updates with automatic refresh every 60 seconds
-- Support for 40+ major cryptocurrencies
-
-**Analytics & Insights**
-- Live portfolio valuation with profit/loss tracking
-- Performance metrics for individual holdings and overall portfolio
-- Best and worst performer identification
+- Real-time cryptocurrency price tracking with automatic 60-second refresh intervals
+- Portfolio management with buy/sell functionality and automatic cost averaging
+- Comprehensive analytics including profit/loss tracking and performance metrics
+- Interactive data visualizations with pie charts and historical performance comparisons
+- Complete transaction history with detailed records and activity timeline
+- Multi-currency support for USD, EUR, and INR with live exchange rates
 - Portfolio health scoring with diversification analysis
-- Smart insights based on portfolio composition
-
-**Data Visualization**
-- Interactive pie chart for portfolio distribution
-- Historical performance comparison charts (Portfolio vs BTC vs ETH)
-- Market trend visualization with 7-day, 30-day, and 90-day views
-
-**Transaction Management**
-- Complete transaction history with timestamps
-- Buy and sell transaction records
-- Portfolio activity timeline
-
-**Notifications System**
-- Real-time notifications for portfolio updates
-- Notification center with read/unread status
-- Configurable notification preferences
-
-**Multi-Currency Support**
-- USD, EUR, and INR display options
-- Real-time exchange rate conversion
-- Persistent currency preference
-
-**Settings & Data Management**
+- Smart insights and recommendations based on portfolio composition
+- Notification system with configurable preferences
 - Portfolio data export functionality
-- Account reset and data cleanup
-- Notification preference management
+- Support for 40+ major cryptocurrencies
 
 ## Tech Stack
 
-**Frontend**
-- React 18.3 - UI library
-- React Router DOM 6.21 - Client-side routing
-- Tailwind CSS 3.4 - Utility-first styling
-- Recharts 2.10 - Data visualization
+**Frontend Framework**
+- React 18.3
+- React Router DOM 6.21
+- Tailwind CSS 3.4
 
-**Build & Development**
-- Vite 6.0 - Build tool and dev server
-- PostCSS & Autoprefixer - CSS processing
+**Data Visualization**
+- Recharts 2.10
 
-**APIs & Services**
-- CoinGecko API - Real-time cryptocurrency data
-- ExchangeRate API - Currency conversion rates
+**Build Tools**
+- Vite 6.0
+- PostCSS & Autoprefixer
 
 **State Management**
-- React Context API - Global state management
-- LocalStorage - Data persistence
+- React Context API
+- LocalStorage for persistence
 
-## Project Structure
-
-```
-src/
-├── components/          # Reusable UI components
-├── pages/              # Route-level page components
-├── charts/             # Data visualization components
-├── context/            # State management providers
-├── services/           # External API integrations
-├── utils/              # Helper functions and utilities
-└── layouts/            # Application layout wrappers
-```
-
-## Screenshots
-
-*Coming Soon* - Application screenshots will be added here.
+**External APIs**
+- CoinGecko API (cryptocurrency data)
+- ExchangeRate API (currency conversion)
 
 ## Installation
 
 ### Prerequisites
 
+Ensure you have the following installed:
 - Node.js v18 or higher
 - npm or yarn package manager
 
-### Local Development
+### Steps
 
-1. Clone the repository
+1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd CryptoPortfolio
+git clone https://github.com/krishnikbarman/coinsight-v1.git
+cd coinsight
 ```
 
-2. Install dependencies
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server
+3. Start the development server:
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+4. Open your browser and navigate to:
+```
+http://localhost:5173
+```
+
+## Run Locally
+
+### Development Mode
+
+```bash
+npm run dev
+```
+
+The application will start on `http://localhost:5173` with hot module replacement enabled.
 
 ### Production Build
 
@@ -116,7 +89,7 @@ npm run dev
 npm run build
 ```
 
-The production-ready files will be generated in the `dist/` directory.
+Optimized files will be generated in the `dist/` directory.
 
 ### Preview Production Build
 
@@ -124,80 +97,93 @@ The production-ready files will be generated in the `dist/` directory.
 npm run preview
 ```
 
-## Deployment
+## Project Structure
 
-### Deploying to Vercel
-
-1. Install Vercel CLI
-```bash
-npm install -g vercel
+```
+coinsight/
+├── public/              # Static assets
+├── src/
+│   ├── components/      # Reusable UI components
+│   ├── pages/          # Route-level page components
+│   ├── charts/         # Data visualization components
+│   ├── context/        # State management providers
+│   ├── services/       # API integration layer
+│   ├── utils/          # Helper functions and utilities
+│   ├── layouts/        # Application layout wrappers
+│   ├── App.jsx         # Root component
+│   ├── main.jsx        # Application entry point
+│   └── index.css       # Global styles
+├── index.html          # HTML template
+├── package.json        # Dependencies and scripts
+├── vite.config.js      # Vite configuration
+├── tailwind.config.js  # Tailwind CSS configuration
+└── tsconfig.json       # TypeScript configuration
 ```
 
-2. Deploy the application
-```bash
-vercel
-```
+## Screenshots
 
-3. Follow the prompts to complete deployment
+> Application UI previews will be added after public deployment.
 
-### Deploying to Netlify
+**Planned Screenshots:**
+- Login Page
+- Dashboard Overview
+- Portfolio Management
+- Transaction History
+- Notification Center
+- Settings & Configuration
 
-1. Build the application
-```bash
-npm run build
-```
+<!-- Example for future use:
+![Login Page](./screenshots/login.png)
+![Dashboard](./screenshots/dashboard.png)
+![Portfolio](./screenshots/portfolio.png)
+-->
 
-2. Deploy the `dist/` folder using Netlify CLI or drag-and-drop on netlify.com
+## Admin Login (Prototype)
 
-### Environment Configuration
-
-No environment variables are required for basic functionality. The application uses public APIs that don't require API keys.
-
-## Admin Access
-
-**Note:** This is a prototype version with frontend-only authentication.
+**Important:** This version uses frontend-only authentication for demonstration purposes.
 
 **Login Credentials:**
 - Email: `admin@coinsight.app`
 - Password: `coinsight123`
 
-**Security Notice:** This authentication is for demonstration purposes only. For production deployment with real user data, implement proper backend authentication, authorization, and data encryption.
+**Security Notice:** This authentication is implemented for prototype demonstration only. Production deployment requires backend authentication, proper authorization, secure session management, and data encryption.
 
-## Usage
+## Usage Guide
 
-1. **Login** - Access the application using the admin credentials
-2. **Dashboard** - View portfolio overview, analytics, and market insights
-3. **Add Holdings** - Click "Add Coin" to search and add cryptocurrencies to your portfolio
-4. **Buy More** - Use the "Buy" action to add to existing positions (automatically averages cost basis)
-5. **Sell Holdings** - Use the "Sell" action to partially or fully liquidate positions
-6. **View History** - Access transaction history from the sidebar navigation
-7. **Configure Settings** - Manage notifications and export data from the Settings page
+1. **Login** - Access the application using the provided credentials
+2. **Dashboard** - View portfolio overview with analytics and market insights
+3. **Add Holdings** - Click "Add Coin" to search and add cryptocurrencies
+4. **Manage Positions** - Use "Buy" to increase holdings or "Sell" to liquidate positions
+5. **Transaction History** - Track all portfolio activities with detailed records
+6. **Settings** - Configure notifications and export portfolio data
 
-## Browser Support
+## Browser Compatibility
 
-- Chrome (recommended)
-- Firefox
+- Google Chrome (recommended)
+- Mozilla Firefox
 - Safari
-- Edge
+- Microsoft Edge
 
 ## Known Limitations
 
-- CoinGecko free tier API has rate limits (50 calls/minute)
-- Historical data limited to 90 days
-- Data persistence uses browser localStorage (max 5-10MB)
+- CoinGecko free tier API rate limit: 50 calls/minute
+- Historical data availability: 90 days maximum
+- Data persistence: Browser localStorage (5-10MB limit)
+- Frontend-only authentication (no backend)
 
-## Future Roadmap (v2.0)
+## Future Roadmap
 
-- Backend integration with user authentication
-- Multi-user support with secure data storage
+**Version 2.0 Planned Features:**
+- Backend API with database integration
+- User authentication and multi-user support
 - Advanced charting with technical indicators
 - Price alerts and threshold notifications
-- Portfolio performance benchmarking
+- Portfolio benchmarking and performance comparison
 - CSV import for bulk transaction uploads
 - Mobile application (React Native)
-- Real-time WebSocket price updates
-- Tax reporting and export
-- API integrations with major exchanges
+- WebSocket integration for real-time price updates
+- Tax reporting and export functionality
+- Exchange API integrations
 
 ## License
 
@@ -205,27 +191,22 @@ This project is licensed under the MIT License.
 
 ## Author
 
-Developed as a portfolio project to demonstrate modern web application architecture, API integration, state management, and responsive UI design.
+**Krishnik Barman**  
+Email: krishnikbarman12@gmail.com  
+GitHub: https://github.com/krishnikbarman
 
 ## Acknowledgments
 
-- CoinGecko for cryptocurrency market data
-- Recharts for visualization library
-- Tailwind CSS for styling framework
+This project was developed to demonstrate modern web application architecture, API integration patterns, state management techniques, and responsive UI design principles.
 
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🙏 Acknowledgments
-
-- [CoinGecko API](https://www.coingecko.com/en/api) for cryptocurrency data
-- [Recharts](https://recharts.org/) for beautiful charts
-- [Tailwind CSS](https://tailwindcss.com/) for styling
-- [React](https://reactjs.org/) for the UI framework
-
-## 📧 Contact
-
-For questions or feedback, please open an issue on GitHub.
+**APIs and Libraries:**
+- [CoinGecko API](https://www.coingecko.com/en/api) - Cryptocurrency market data
+- [ExchangeRate API](https://www.exchangerate-api.com/) - Currency conversion rates
+- [Recharts](https://recharts.org/) - Data visualization library
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [React](https://reactjs.org/) - JavaScript UI library
+- [Vite](https://vitejs.dev/) - Next-generation frontend tooling
 
 ---
 
-**Made with ❤️ and React**
+**CoinSight v1.0** - Professional Cryptocurrency Portfolio Management

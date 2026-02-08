@@ -159,7 +159,6 @@ export const fetchCurrentPrices = async (coins, currency = 'usd', retryCount = 0
 
     // Retry logic for network errors (not rate limits)
     if (retryCount < MAX_RETRIES && error.message !== 'RATE_LIMIT_EXCEEDED') {
-      console.log(`Retrying... (${retryCount + 1}/${MAX_RETRIES})`)
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
       return fetchCurrentPrices(coins, currency, retryCount + 1)
     }
