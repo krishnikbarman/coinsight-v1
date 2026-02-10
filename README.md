@@ -1,46 +1,89 @@
-# CoinSight
+# CoinSight – Crypto Portfolio Analyzer (v1.1)
 
-A professional cryptocurrency portfolio management dashboard built with React, Vite, and Tailwind CSS for real-time investment tracking and analytics.
+A professional cryptocurrency portfolio management dashboard with real-time tracking, cloud storage, and advanced analytics. Built with modern web technologies and enterprise-grade security.
 
-## Description
+## Overview
 
-CoinSight is a production-ready web application that enables cryptocurrency investors to monitor and analyze their portfolios in real-time. The platform integrates with CoinGecko API to fetch live market data, calculates portfolio metrics automatically, and provides comprehensive insights through interactive visualizations and intelligent notifications.
+CoinSight is a production-ready application that enables cryptocurrency investors to monitor, analyze, and manage their portfolios with real-time market data. The platform features secure authentication, cloud database persistence, and comprehensive portfolio analytics with intelligent insights.
 
 ## Features
 
-- Real-time cryptocurrency price tracking with automatic 60-second refresh intervals
-- Portfolio management with buy/sell functionality and automatic cost averaging
-- Comprehensive analytics including profit/loss tracking and performance metrics
-- Interactive data visualizations with pie charts and historical performance comparisons
-- Complete transaction history with detailed records and activity timeline
-- Multi-currency support for USD, EUR, and INR with live exchange rates
-- Portfolio health scoring with diversification analysis
-- Smart insights and recommendations based on portfolio composition
-- Notification system with configurable preferences
-- Portfolio data export functionality
-- Support for 40+ major cryptocurrencies
+- **Real-time Portfolio Tracking** - Live cryptocurrency prices with automatic 60-second refresh intervals
+- **Supabase Cloud Storage** - Persistent database storage with cross-device synchronization
+- **Admin Authentication** - Secure email/password authentication with role-based access control
+- **Notification System** - Configurable alerts for price changes and portfolio events
+- **Transaction History** - Complete audit trail of all buy/sell operations
+- **Portfolio Analytics** - Profit/loss tracking, diversification analysis, and health scoring
+- **Secure Row-Level Security** - RLS policies ensure users access only their own data
+- **Cloud Synced Settings** - User preferences and configurations stored in Supabase
+- **Multi-Currency Support** - USD, EUR, and INR with live exchange rates
+- **Interactive Visualizations** - Pie charts and historical performance comparisons
+- **Data Export** - Export portfolio data for external analysis
+- **40+ Cryptocurrencies** - Support for major digital assets
 
 ## Tech Stack
 
-**Frontend Framework**
-- React 18.3
-- React Router DOM 6.21
-- Tailwind CSS 3.4
+**Frontend**
+- React 18.3 - Modern UI library
+- Vite 6.0 - Next-generation build tool
+- Tailwind CSS 3.4 - Utility-first styling
+
+**Backend**
+- Supabase - Backend-as-a-Service platform
+- PostgreSQL (Supabase) - Relational database
+- Row-Level Security (RLS) - Data isolation
+
+**Authentication**
+- Supabase Email/Password - Secure user authentication
 
 **Data Visualization**
-- Recharts 2.10
-
-**Build Tools**
-- Vite 6.0
-- PostCSS & Autoprefixer
+- Recharts 2.10 - React charting library
 
 **State Management**
-- React Context API
-- LocalStorage for persistence
+- React Context API - Global state management
+- React Router DOM 6.21 - Client-side routing
 
 **External APIs**
-- CoinGecko API (cryptocurrency data)
-- ExchangeRate API (currency conversion)
+- CoinGecko API - Real-time cryptocurrency market data
+- ExchangeRate API - Live currency conversion rates
+
+## Architecture
+
+CoinSight follows a modern three-tier architecture:
+
+### Frontend Layer
+- **React Components** - Modular UI built with functional components and hooks
+- **Context Providers** - Global state management for auth, portfolio, and notifications
+- **Service Layer** - Abstraction for all backend communication
+
+### Backend Layer
+- **Supabase Client** - Centralized client instance in `/supabase/client.js`
+- **Authentication** - Managed by Supabase Auth with email/password flow
+- **API Services** - Dedicated services for portfolio, transactions, and external APIs
+
+### Database Layer
+- **PostgreSQL Tables**:
+  - `profiles` - User metadata and roles
+  - `holdings` - Current portfolio positions per user
+  - `transactions` - Complete transaction history
+  - `portfolio_snapshots` - Daily portfolio value tracking
+- **Row-Level Security** - Automatic user data isolation with RLS policies
+- **Foreign Keys** - Referential integrity between users and data
+
+### Data Flow
+```
+User Action → React Component → Service Layer → Supabase Client → PostgreSQL
+                                      ↓
+                            External APIs (CoinGecko, ExchangeRate)
+```
+
+### LocalStorage Usage
+CoinSight uses localStorage only for:
+- **Supabase Auth Session** - Session tokens managed by Supabase SDK
+- **One-Time Migration Flag** - Tracks if localStorage data has been migrated to Supabase
+- **Reset App Feature** - Clears local cache when user resets application
+
+All portfolio data is stored in Supabase PostgreSQL database.
 
 ## Installation
 
@@ -63,15 +106,37 @@ cd coinsight
 npm install
 ```
 
-3. Start the development server:
+3. Configure Supabase:
+   
+   a. Create a free account at [https://supabase.com](https://supabase.com)
+   
+   b. Create a new project
+   
+   c. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   d. Get your credentials from Project Settings > API:
+      - Copy the Project URL
+      - Copy the anon/public key
+   
+   e. Update `.env`:
+   ```env
+   VITE_SUPABASE_URL=your_project_url
+   VITE_SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+   f. Run the database schema from `supabase-schema.sql` in the Supabase SQL Editor
+
+4. Start the development server:
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to:
-```
-http://localhost:5173
-```
+5. Open your browser at `http://localhost:5173`
+
+6. Register a new account to start tracking your portfolio
 
 ## Run Locally
 
@@ -102,23 +167,45 @@ npm run preview
 ```
 coinsight/
 ├── public/              # Static assets
+├── screenshots/         # Application screenshots
 ├── src/
 │   ├── components/      # Reusable UI components
 │   ├── pages/          # Route-level page components
 │   ├── charts/         # Data visualization components
-│   ├── context/        # State management providers
-│   ├── services/       # API integration layer
-│   ├── utils/          # Helper functions and utilities
-│   ├── layouts/        # Application layout wrappers
-│   ├── App.jsx         # Root component
+│   ├── context/        # Context providers (Auth, Portfolio, Notifications)
+│   ├── services/       # API integration (portfolio, transaction, crypto, currency)
+│   ├── supabase/       # Supabase client configuration
+│   ├── utils/          # Helper functions and calculations
+│   ├── layouts/        # Layout wrappers (App, Auth)
+│   ├── config/         # Configuration files
+│   ├── App.jsx         # Root component with routing
 │   ├── main.jsx        # Application entry point
-│   └── index.css       # Global styles
+│   └── index.css       # Global styles and Tailwind directives
+├── .env.example        # Environment variables template
+├── supabase-schema.sql # Database schema and RLS policies
 ├── index.html          # HTML template
 ├── package.json        # Dependencies and scripts
 ├── vite.config.js      # Vite configuration
-├── tailwind.config.js  # Tailwind CSS configuration
-└── tsconfig.json       # TypeScript configuration
+└── tailwind.config.js  # Tailwind CSS configuration
 ```
+
+## Deployment
+
+CoinSight is deployment-ready and works seamlessly on modern hosting platforms:
+
+### Vercel (Recommended)
+```bash
+npm install -g vercel
+vercel
+```
+
+### Netlify
+```bash
+npm run build
+# Deploy the dist/ folder via Netlify dashboard or CLI
+```
+
+**Environment Variables**: Ensure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are configured in your hosting platform's environment settings.
 
 ## Screenshots
 
@@ -140,24 +227,36 @@ coinsight/
 ### Settings & About
 ![Settings](./screenshots/settings.png)
 
-## Admin Login (Prototype)
+## Authentication
 
-**Important:** This version uses frontend-only authentication for demonstration purposes.
+CoinSight uses Supabase for secure, production-grade authentication.
 
-**Login Credentials:**
-- Email: `admin@coinsight.app`
-- Password: `coinsight123`
+**Registration:**
+1. Navigate to the login page
+2. Click the "Register" tab
+3. Enter email and password (minimum 6 characters)
+4. Confirm email if required by your Supabase settings
 
-**Security Notice:** This authentication is implemented for prototype demonstration only. Production deployment requires backend authentication, proper authorization, secure session management, and data encryption.
+**Login:**
+- Use registered email and password
+- Sessions persist across browser refreshes
+- Automatic token refresh
+
+**Security Features:**
+- Passwords hashed and stored securely by Supabase
+- JWT-based session tokens
+- Protected routes with automatic redirects
+- Role-based access control for admin features
 
 ## Usage Guide
 
-1. **Login** - Access the application using the provided credentials
-2. **Dashboard** - View portfolio overview with analytics and market insights
-3. **Add Holdings** - Click "Add Coin" to search and add cryptocurrencies
-4. **Manage Positions** - Use "Buy" to increase holdings or "Sell" to liquidate positions
-5. **Transaction History** - Track all portfolio activities with detailed records
-6. **Settings** - Configure notifications and export portfolio data
+1. **Register/Login** - Create account or sign in with credentials
+2. **Dashboard** - View portfolio overview with real-time analytics and insights
+3. **Add Holdings** - Click "Add Coin" to search and add cryptocurrencies to your portfolio
+4. **Buy/Sell** - Manage positions with automatic cost averaging calculations
+5. **Transaction History** - Review complete audit trail of all operations
+6. **Notifications** - Configure alerts for price changes and portfolio events
+7. **Settings** - Customize preferences, currency, and export portfolio data
 
 ## Browser Compatibility
 
@@ -166,26 +265,40 @@ coinsight/
 - Safari
 - Microsoft Edge
 
+## Version History
+
+**v1.0 – LocalStorage Prototype**
+- Client-side portfolio tracking
+- LocalStorage data persistence
+- Basic authentication simulation
+- Real-time market data integration
+
+**v1.1 – Supabase Backend Migration**
+- Migrated to Supabase backend infrastructure
+- PostgreSQL database with RLS policies
+- Secure email/password authentication
+- Cross-device portfolio synchronization
+- Transaction history persistence
+- Cloud-based settings storage
+- Automatic localStorage to Supabase migration
+- Production-ready architecture
+
 ## Known Limitations
 
-- CoinGecko free tier API rate limit: 50 calls/minute
-- Historical data availability: 90 days maximum
-- Data persistence: Browser localStorage (5-10MB limit)
-- Frontend-only authentication (no backend)
+- CoinGecko free tier: 50 API calls per minute
+- Historical data: 90-day maximum range
+- Email confirmation may be required based on Supabase project settings
 
 ## Future Roadmap
 
-**Version 2.0 Planned Features:**
-- Backend API with database integration
-- User authentication and multi-user support
 - Advanced charting with technical indicators
 - Price alerts and threshold notifications
-- Portfolio benchmarking and performance comparison
+- Portfolio benchmarking against market indices
 - CSV import for bulk transaction uploads
-- Mobile application (React Native)
-- WebSocket integration for real-time price updates
 - Tax reporting and export functionality
-- Exchange API integrations
+- Exchange API integrations for automatic sync
+- Mobile application (React Native)
+- WebSocket integration for real-time updates
 
 ## License
 
@@ -199,16 +312,16 @@ GitHub: https://github.com/krishnikbarman
 
 ## Acknowledgments
 
-This project was developed to demonstrate modern web application architecture, API integration patterns, state management techniques, and responsive UI design principles.
+Built with industry-leading technologies and APIs:
 
-**APIs and Libraries:**
+- [Supabase](https://supabase.com/) - Backend infrastructure and authentication
 - [CoinGecko API](https://www.coingecko.com/en/api) - Cryptocurrency market data
-- [ExchangeRate API](https://www.exchangerate-api.com/) - Currency conversion rates
-- [Recharts](https://recharts.org/) - Data visualization library
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- [React](https://reactjs.org/) - JavaScript UI library
-- [Vite](https://vitejs.dev/) - Next-generation frontend tooling
+- [ExchangeRate API](https://www.exchangerate-api.com/) - Currency conversion
+- [Recharts](https://recharts.org/) - Data visualization
+- [Tailwind CSS](https://tailwindcss.com/) - Styling framework
+- [React](https://reactjs.org/) - UI library
+- [Vite](https://vitejs.dev/) - Build tool
 
 ---
 
-**CoinSight v1.0** - Professional Cryptocurrency Portfolio Management
+**CoinSight v1.1** - Professional Crypto Portfolio Analyzer with Cloud Backend

@@ -1,5 +1,3 @@
-import React from 'react'
-
 const StatCard = ({ title, value, subtitle, icon, trend, trendValue, color = 'blue', loading = false }) => {
   const colorClasses = {
     blue: 'from-neon-blue/20 to-neon-blue/5 border-neon-blue/30 text-neon-blue',

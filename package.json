@@ -1,7 +1,7 @@
 {
   "name": "crypto-portfolio-analyzer",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,11 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "axios": "^1.6.5",
+    "dotenv": "^17.2.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.21.3",
-    "recharts": "^2.10.4",
-    "axios": "^1.6.5"
+    "recharts": "^2.10.4"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

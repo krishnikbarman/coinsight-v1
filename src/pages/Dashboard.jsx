@@ -1,4 +1,3 @@
-import React from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 import StatCard from '../components/StatCard'
 import PortfolioPieChart from '../charts/PortfolioPieChart'

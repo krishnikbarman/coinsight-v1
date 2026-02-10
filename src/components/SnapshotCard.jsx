@@ -1,14 +1,41 @@
-import React from 'react'
+import { useState, useEffect } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 import { getSnapshotDaysAgo, calculatePercentageChange } from '../utils/historyUtils'
+import { useAuth } from '../context/AuthContext'
 
 const SnapshotCard = ({ daysAgo, title, icon }) => {
+  const { user } = useAuth()
   const { formatCurrency } = usePortfolio()
   const metrics = usePortfolio().calculateMetrics()
   const currentValue = metrics.totalValue || 0
 
-  // Get historical snapshot
-  const snapshot = getSnapshotDaysAgo(daysAgo)
+  const [snapshot, setSnapshot] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Load historical snapshot
+  useEffect(() => {
+    const loadSnapshot = async () => {
+      if (!user) {
+        setSnapshot(null)
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const data = await getSnapshotDaysAgo(daysAgo, user.id)
+        setSnapshot(data)
+      } catch (error) {
+        console.error('Error loading snapshot:', error)
+        setSnapshot(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadSnapshot()
+  }, [daysAgo, user])
+
   const historicalValue = snapshot ? snapshot.value : null
   
   // Calculate change

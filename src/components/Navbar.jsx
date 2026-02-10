@@ -199,7 +199,7 @@ const Navbar = ({ toggleSidebar }) => {
               onClick={() => setUserDropdownOpen(!userDropdownOpen)}
               className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center cursor-pointer hover:scale-110 transition-transform border-2 border-transparent"
             >
-              <span className="text-sm font-bold">{user?.email?.charAt(0).toUpperCase() || 'A'}</span>
+              <span className="text-sm font-bold">{user?.email?.charAt(0).toUpperCase() || 'U'}</span>
             </button>
 
             {/* Dropdown Menu */}
@@ -207,10 +207,12 @@ const Navbar = ({ toggleSidebar }) => {
               <div className="absolute right-0 mt-2 w-56 bg-dark-secondary border border-dark-tertiary rounded-lg shadow-2xl z-50 animate-slideDown">
                 {/* User Info */}
                 <div className="px-4 py-3 border-b border-dark-tertiary">
-                  <p className="text-sm font-medium text-white">{user?.email || 'Admin'}</p>
+                  <p className="text-sm font-medium text-white truncate" title={user?.email}>
+                    {user?.email || 'User'}
+                  </p>
                   <div className="flex items-center mt-1.5">
                     <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-neon-blue border border-neon-blue/50 rounded-full bg-neon-blue/10">
-                      {user?.role?.toUpperCase() || 'ADMIN'}
+                      ADMIN
                     </span>
                   </div>
                 </div>

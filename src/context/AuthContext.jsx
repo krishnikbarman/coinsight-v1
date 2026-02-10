@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabase/client';
+import { isAdminEmail } from '../config/admin';
 
 const AuthContext = createContext();
 
@@ -10,73 +12,151 @@ export const useAuth = () => {
   return context;
 };
 
-// Admin credentials configuration
-const ADMIN_CREDENTIALS = {
-  email: 'admin@coinsight.app',
-  password: 'coinsight123',
-};
-
-const STORAGE_KEY = 'coinsight_user';
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount
+  // Check authentication status on mount and set up auth state listener
   useEffect(() => {
-    const checkAuth = () => {
+    let mounted = true;
+    let authSubscription = null;
+
+    const initAuth = async () => {
       try {
-        const storedUser = localStorage.getItem(STORAGE_KEY);
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          if (userData.loggedIn) {
-            setUser(userData);
-            setIsLoggedIn(true);
-          }
+        // Add timeout to prevent infinite loading
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 3000)
+        );
+
+        const sessionPromise = supabase.auth.getSession();
+
+        const result = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]);
+
+        const session = result?.data?.session || null;
+
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setIsLoggedIn(!!session);
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
-        localStorage.removeItem(STORAGE_KEY);
+        console.warn('⚠️  Supabase connection failed:', error.message);
+        
+        // Clear all auth state on error
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          setIsLoggedIn(false);
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
-    // Small delay to show loading state
-    setTimeout(checkAuth, 300);
-  }, []);
+    initAuth();
 
-  const login = (email, password) => {
-    // Validate credentials
-    if (email === ADMIN_CREDENTIALS.email && password === ADMIN_CREDENTIALS.password) {
-      const userData = {
-        email: email,
-        role: 'admin',
-        loggedIn: true,
-        loginTime: new Date().toISOString(),
-      };
-
-      // Store in localStorage
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
-      setUser(userData);
-      setIsLoggedIn(true);
-      
-      return { success: true };
+    // Listen for auth state changes
+    try {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setIsLoggedIn(!!session);
+        }
+      });
+      authSubscription = subscription;
+    } catch (error) {
+      console.warn('Could not set up auth listener:', error);
     }
 
-    return { success: false, error: 'Invalid Credentials' };
+    return () => {
+      mounted = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
+  }, []);
+
+  // Register new user
+  const register = async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        message: 'Registration successful! Please check your email to confirm your account.',
+        data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || 'Registration failed',
+      };
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
-    setIsLoggedIn(false);
+  // Login existing user
+  const login = async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      // Check if user email is the admin email
+      if (data.user && !isAdminEmail(data.user.email)) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: 'Access denied. Only admin can access this dashboard.',
+        };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || 'Login failed',
+      };
+    }
+  };
+
+  // Logout user
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error during logout:', error.message);
+    } finally {
+      // Always clear local state on logout
+      setSession(null);
+      setUser(null);
+      setIsLoggedIn(false);
+    }
   };
 
   const value = {
     user,
+    session,
     isLoggedIn,
     isLoading,
+    isAdmin: user ? isAdminEmail(user.email) : false,
+    register,
     login,
     logout,
   };

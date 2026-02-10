@@ -1,5 +1,3 @@
-import React from 'react'
-
 const ActivityTimeline = ({ activities = [], limit = 5 }) => {
   const displayedActivities = limit ? activities.slice(0, limit) : activities
 

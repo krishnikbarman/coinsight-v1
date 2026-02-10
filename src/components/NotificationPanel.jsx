@@ -1,4 +1,3 @@
-import React from 'react'
 import { useNotifications } from '../context/NotificationContext'
 
 const NotificationPanel = ({ isOpen, onClose }) => {

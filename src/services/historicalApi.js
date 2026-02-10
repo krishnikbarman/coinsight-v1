@@ -108,7 +108,6 @@ export const fetchHistoricalData = async (coinId, days, retryCount = 0) => {
     
     // Retry logic for network errors (not rate limits)
     if (retryCount < MAX_RETRIES && error.message !== 'RATE_LIMIT_EXCEEDED') {
-      console.log(`Retrying historical data... (${retryCount + 1}/${MAX_RETRIES})`)
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
       return fetchHistoricalData(coinId, days, retryCount + 1)
     }

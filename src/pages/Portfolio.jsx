@@ -3,12 +3,13 @@ import { usePortfolio } from '../context/PortfolioContext'
 import CoinTable from '../components/CoinTable'
 import EmptyState from '../components/EmptyState'
 import AddCoinModal from '../components/AddCoinModal'
+import Loader from '../components/Loader'
 
 // Feature flags
 const ENABLE_EXPORT_BUTTONS = false // Set to true to re-enable PDF, CSV, Share buttons
 
 const Portfolio = () => {
-  const { coins, formatCurrency } = usePortfolio()
+  const { coins, formatCurrency, loading } = usePortfolio()
   const metrics = usePortfolio().calculateMetrics()
 
   // Buy Coin Modal state
@@ -94,6 +95,15 @@ const Portfolio = () => {
   
   const handleNextPage = () => {
     setCurrentPage(prev => Math.min(totalPages, prev + 1))
+  }
+
+  // Show loading spinner while fetching data from Supabase
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] animate-fadeIn">
+        <Loader size="large" text="Loading your portfolio from Supabase..." />
+      </div>
+    )
   }
 
   return (

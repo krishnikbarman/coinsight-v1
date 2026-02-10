@@ -1,13 +1,39 @@
-import React from 'react'
+import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { getHistoryForRange } from '../utils/historyUtils'
+import { useAuth } from '../context/AuthContext'
 
 const PriceLineChart = ({ coins }) => {
-  // Get portfolio history for last 30 days
-  const history = getHistoryForRange(30)
+  const { user } = useAuth()
+  const [history, setHistory] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Handle empty state
-  if (!history || history.length === 0) {
+  // Load portfolio history for last 30 days
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!user) {
+        setHistory([])
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const data = await getHistoryForRange(30, user.id)
+        setHistory(data)
+      } catch (error) {
+        console.error('Error loading history:', error)
+        setHistory([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadHistory()
+  }, [user])
+
+  // Handle loading or empty state
+  if (loading || !history || history.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">

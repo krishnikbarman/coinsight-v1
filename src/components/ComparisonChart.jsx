@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { fetchMarketComparison, normalizeHistoricalData, mergeHistoricalDatasets } from '../services/historicalApi'
 import { getHistoryForRange, normalizeToPercentage } from '../utils/historyUtils'
+import { useAuth } from '../context/AuthContext'
 import Loader from './Loader'
 
 const ComparisonChart = () => {
+  const { user } = useAuth()
   const [timeRange, setTimeRange] = useState(30) // 7, 30, or 90 days
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -17,9 +19,15 @@ const ComparisonChart = () => {
 
   useEffect(() => {
     loadComparisonData()
-  }, [timeRange])
+  }, [timeRange, user])
 
   const loadComparisonData = async () => {
+    if (!user) {
+      setChartData([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -28,7 +36,7 @@ const ComparisonChart = () => {
       const marketData = await fetchMarketComparison(timeRange)
 
       // Get portfolio historical data
-      const portfolioHistory = getHistoryForRange(timeRange)
+      const portfolioHistory = await getHistoryForRange(timeRange, user.id)
 
       if (portfolioHistory.length === 0) {
         setError('Not enough portfolio history. Buy coins and check back later.')

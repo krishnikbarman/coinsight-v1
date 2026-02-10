@@ -1,4 +1,3 @@
-import React from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 
 const TransactionHistory = () => {

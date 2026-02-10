@@ -1,23 +1,97 @@
 import React, { useState, useEffect } from 'react'
-import { STORAGE_KEYS, getStorageItem, setStorageItem, resetAppData } from '../utils/storage'
+import { supabase } from '../supabase/client'
+import { useAuth } from '../context/AuthContext'
+import { resetAppData } from '../utils/storage'
+import * as portfolioService from '../services/portfolioService'
+import * as transactionService from '../services/transactionService'
+import { getPortfolioHistory } from '../utils/historyUtils'
 
 const Settings = () => {
-  // Load notification preferences from localStorage or use defaults
-  const [notifications, setNotifications] = useState(() => {
-    return getStorageItem(STORAGE_KEYS.SETTINGS, {
-      portfolioUpdates: true,
-      marketTrends: false
-    })
+  const { user, session } = useAuth()
+  const [loading, setLoading] = useState(true)
+  
+  // Load notification preferences from Supabase
+  const [notifications, setNotifications] = useState({
+    portfolioUpdates: true,
+    marketTrends: false
   })
 
-  // Persist notification settings to localStorage (excluding coming soon features)
+  // Load settings from Supabase when component mounts
   useEffect(() => {
-    setStorageItem(STORAGE_KEYS.SETTINGS, notifications)
-  }, [notifications])
+    const loadSettings = async () => {
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-  const handleNotificationToggle = (key, comingSoon) => {
-    if (comingSoon) return // Prevent interaction with coming soon features
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }))
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('portfolio_updates, market_trends')
+          .eq('user_id', user.id)
+          .single()
+
+        if (error) {
+          // If no settings exist, create default
+          if (error.code === 'PGRST116') {
+            const { data: newSettings } = await supabase
+              .from('user_settings')
+              .insert({
+                user_id: user.id,
+                portfolio_updates: true,
+                market_trends: false,
+                currency: 'USD'
+              })
+              .select()
+              .single()
+
+            if (newSettings) {
+              setNotifications({
+                portfolioUpdates: newSettings.portfolio_updates,
+                marketTrends: newSettings.market_trends
+              })
+            }
+          } else {
+            console.error('Error loading settings:', error)
+          }
+        } else if (data) {
+          setNotifications({
+            portfolioUpdates: data.portfolio_updates,
+            marketTrends: data.market_trends
+          })
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadSettings()
+  }, [user])
+
+  // Persist notification settings to Supabase
+  const handleNotificationToggle = async (key, comingSoon) => {
+    if (comingSoon || !user) return // Prevent interaction with coming soon features
+    
+    const newValue = !notifications[key]
+    const dbKey = key === 'portfolioUpdates' ? 'portfolio_updates' : 'market_trends'
+    
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .update({ [dbKey]: newValue })
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error updating settings:', error)
+        return
+      }
+
+      setNotifications(prev => ({ ...prev, [key]: newValue }))
+    } catch (error) {
+      console.error('Error updating settings:', error)
+    }
   }
 
   // V1 Notification Configuration
@@ -48,42 +122,74 @@ const Settings = () => {
     }
   ]
 
-  const handleResetAppData = () => {
+  const handleResetAppData = async () => {
+    if (!user) {
+      alert('You must be logged in to reset data.')
+      return
+    }
+
     const confirmed = window.confirm(
-      'Reset App Data?\n\nThis will erase your portfolio, transactions, and notifications. This action cannot be undone.'
+      'Reset App Data?\n\nThis will erase your portfolio, transactions, snapshots, and notifications from the database. This action cannot be undone.'
     )
     if (confirmed) {
-      const success = resetAppData()
-      if (success) {
-        alert('All CoinSight data has been reset. The app will now restart.')
+      try {
+        // Delete all user data from Supabase
+        await Promise.all([
+          supabase.from('holdings').delete().eq('user_id', user.id),
+          supabase.from('transactions').delete().eq('user_id', user.id),
+          supabase.from('portfolio_snapshots').delete().eq('user_id', user.id),
+          supabase.from('notifications').delete().eq('user_id', user.id)
+        ])
+
+        // Also clear any localStorage remnants
+        resetAppData()
+
+        alert('All CoinSight data has been reset. The app will now reload.')
         window.location.href = '/dashboard'
-      } else {
+      } catch (error) {
+        console.error('Error resetting app data:', error)
         alert('Failed to reset app data. Please try again.')
       }
     }
   }
 
-  const handleExportData = () => {
-    const portfolioData = getStorageItem(STORAGE_KEYS.PORTFOLIO, [])
-    const transactionsData = getStorageItem(STORAGE_KEYS.TRANSACTIONS, [])
-    
-    const exportData = {
-      portfolio: portfolioData,
-      transactions: transactionsData,
-      exportDate: new Date().toISOString(),
-      version: '1.0.0'
+  const handleExportData = async () => {
+    if (!user) {
+      alert('You must be logged in to export data.')
+      return
     }
-    
-    if (portfolioData.length > 0 || transactionsData.length > 0) {
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'coinsight-backup.json'
-      a.click()
-      URL.revokeObjectURL(url)
-    } else {
-      alert('No data to export.')
+
+    try {
+      // Fetch all data from Supabase
+      const [holdings, transactions, snapshots] = await Promise.all([
+        portfolioService.getHoldings(user.id),
+        transactionService.getTransactions(user.id),
+        getPortfolioHistory(user.id)
+      ])
+      
+      const exportData = {
+        portfolio: holdings,
+        transactions: transactions,
+        snapshots: snapshots,
+        exportDate: new Date().toISOString(),
+        version: '2.0.0',
+        source: 'supabase'
+      }
+      
+      if (holdings.length > 0 || transactions.length > 0 || snapshots.length > 0) {
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `coinsight-backup-${new Date().toISOString().split('T')[0]}.json`
+        a.click()
+        URL.revokeObjectURL(url)
+      } else {
+        alert('No data to export.')
+      }
+    } catch (error) {
+      console.error('Error exporting data:', error)
+      alert('Failed to export data. Please try again.')
     }
   }
 

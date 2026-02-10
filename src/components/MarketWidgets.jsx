@@ -1,5 +1,3 @@
-import React from 'react'
-
 // Mock market data
 const marketData = {
   fearGreedIndex: {

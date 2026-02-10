@@ -1,11 +1,15 @@
-import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react'
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react'
+import { supabase } from '../supabase/client'
 import { fetchPricesWithFallback, getCoinId } from '../services/cryptoApi'
 import { calculatePortfolioMetrics } from '../utils/calculations'
-import { savePortfolioSnapshot } from '../utils/historyUtils'
+import { savePortfolioSnapshot, migrateHistoryToSupabase } from '../utils/historyUtils'
 import { useAppStatus } from './AppStatusContext'
 import { fetchExchangeRates, convertCurrency, formatCurrencyValue, SUPPORTED_CURRENCIES } from '../services/currencyApi'
 import { useNotifications } from './NotificationContext'
-import { STORAGE_KEYS, getStorageItem, setStorageItem } from '../utils/storage'
+import { STORAGE_KEYS, getStorageItem } from '../utils/storage'
+import { useAuth } from './AuthContext'
+import * as portfolioService from '../services/portfolioService'
+import * as transactionService from '../services/transactionService'
 
 const PortfolioContext = createContext()
 
@@ -23,42 +27,140 @@ const PRICE_REFRESH_INTERVAL = 60000
 export const PortfolioProvider = ({ children }) => {
   const { setIsLiveData, setIsLoadingPrices, setLastUpdate, setApiStatusSource } = useAppStatus()
   const { addNotification } = useNotifications()
+  const { user, session } = useAuth() // Get user from AuthContext
   
-  const [coins, setCoins] = useState(() => {
-    return getStorageItem(STORAGE_KEYS.PORTFOLIO, [])
-  })
-  
-  const [transactions, setTransactions] = useState(() => {
-    return getStorageItem(STORAGE_KEYS.TRANSACTIONS, [])
-  })
-  
-  // Load currency from localStorage or default to USD
-  const [currency, setCurrency] = useState(() => {
-    const saved = getStorageItem(STORAGE_KEYS.CURRENCY, null)
-    if (saved && SUPPORTED_CURRENCIES[saved]) {
-      return saved
-    }
-    return 'USD'
-  })
-  
+  const [coins, setCoins] = useState([])
+  const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
+  
+  // Load currency from Supabase user_settings (no localStorage fallback)
+  const [currency, setCurrency] = useState('USD')
+  const [currencyLoaded, setCurrencyLoaded] = useState(false)
+  
   const [priceLoading, setPriceLoading] = useState(false)
   const [lastUpdateLocal, setLastUpdateLocal] = useState(null)
   const [apiStatus, setApiStatus] = useState({ success: true, source: 'initial' })
   const [refreshInterval, setRefreshInterval] = useState(PRICE_REFRESH_INTERVAL)
   const [exchangeRates, setExchangeRates] = useState(null)
-  
-  const intervalRef = useRef(null)
 
-  // Save to localStorage whenever coins change
+  // Load currency from Supabase user_settings
   useEffect(() => {
-    setStorageItem(STORAGE_KEYS.PORTFOLIO, coins)
-  }, [coins])
+    const loadCurrency = async () => {
+      if (!user) {
+        setCurrency('USD')
+        setCurrencyLoaded(true)
+        return
+      }
 
-  // Save to localStorage whenever transactions change
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('currency')
+          .eq('user_id', user.id)
+          .single()
+
+        if (error) {
+          // If settings don't exist, create default
+          if (error.code === 'PGRST116') {
+            // Migrate currency from localStorage if present
+            const localCurrency = getStorageItem(STORAGE_KEYS.CURRENCY, 'USD')
+            
+            await supabase
+              .from('user_settings')
+              .insert({
+                user_id: user.id,
+                currency: localCurrency,
+                portfolio_updates: true,
+                market_trends: false
+              })
+
+            setCurrency(localCurrency)
+            
+            // Clear localStorage currency after migration
+            localStorage.removeItem(STORAGE_KEYS.CURRENCY)
+          } else {
+            console.error('Error loading currency:', error)
+            setCurrency('USD')
+          }
+        } else if (data) {
+          setCurrency(data.currency || 'USD')
+        }
+      } catch (error) {
+        console.error('Error loading currency:', error)
+        setCurrency('USD')
+      } finally {
+        setCurrencyLoaded(true)
+      }
+    }
+
+    loadCurrency()
+  }, [user])
+
+  // Load portfolio data from Supabase on mount (always fetch fresh)
   useEffect(() => {
-    setStorageItem(STORAGE_KEYS.TRANSACTIONS, transactions)
-  }, [transactions])
+    const loadPortfolioData = async () => {
+      setLoading(true)
+      
+      try {
+        // Get current session
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError)
+          setCoins([])
+          setTransactions([])
+          setLoading(false)
+          return
+        }
+
+        // If no session, clear data
+        if (!currentSession) {
+          setCoins([])
+          setTransactions([])
+          setLoading(false)
+          return
+        }
+
+        // Extract user ID
+        const userId = currentSession.user.id
+
+        // Check if migration is needed (one-time check for localStorage data)
+        const localCoins = getStorageItem(STORAGE_KEYS.PORTFOLIO, [])
+        const localTxs = getStorageItem(STORAGE_KEYS.TRANSACTIONS, [])
+        const localHistory = getStorageItem(STORAGE_KEYS.HISTORY, [])
+        
+        if (localCoins.length > 0 || localTxs.length > 0 || localHistory.length > 0) {
+          try {
+            await Promise.all([
+              portfolioService.migrateLocalStorageToSupabase(userId),
+              transactionService.migrateTransactionsToSupabase(userId),
+              migrateHistoryToSupabase(userId)
+            ])
+          } catch (migrationError) {
+            console.warn('⚠️ Migration failed:', migrationError.message)
+          }
+        }
+
+        // Always fetch from Supabase (fresh data)
+        const [holdings, txs] = await Promise.all([
+          portfolioService.getHoldings(userId),
+          transactionService.getTransactions(userId)
+        ])
+
+        // Update state with fetched data
+        setCoins(holdings)
+        setTransactions(txs)
+      } catch (error) {
+        console.error('❌ Error loading portfolio data:', error)
+        setCoins([])
+        setTransactions([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPortfolioData()
+  }, [session]) // Re-run when session changes
 
   // Fetch exchange rates on mount and periodically
   useEffect(() => {
@@ -74,11 +176,6 @@ export const PortfolioProvider = ({ children }) => {
     
     return () => clearInterval(ratesInterval)
   }, [])
-
-  // Save currency to localStorage whenever it changes
-  useEffect(() => {
-    setStorageItem(STORAGE_KEYS.CURRENCY, currency)
-  }, [currency])
 
   /**
    * Fetch current prices from CoinGecko API
@@ -133,10 +230,38 @@ export const PortfolioProvider = ({ children }) => {
       setLastUpdateLocal(now)
       setLastUpdate(now)
       
+      // Update prices in Supabase (async, don't block UI)
+      const userId = session?.user?.id
+      if (userId && result.success) {
+        const priceUpdates = updatedCoins
+          .map(coin => {
+            const coinId = coin.coinId || getCoinId(coin.symbol)
+            const priceData = result.data[coinId]
+            if (priceData && priceData.usd) {
+              return {
+                coinId,
+                currentPrice: priceData.usd,
+                priceChange24h: priceData.usd_24h_change || 0
+              }
+            }
+            return null
+          })
+          .filter(Boolean)
+        
+        if (priceUpdates.length > 0) {
+          portfolioService.bulkUpdatePrices(priceUpdates, userId).catch(err => 
+            console.warn('Failed to update prices in Supabase:', err)
+          )
+        }
+      }
+      
       // Save portfolio snapshot after price update
       const metrics = calculatePortfolioMetrics(updatedCoins)
-      if (metrics.totalValue > 0) {
-        savePortfolioSnapshot(metrics.totalValue)
+      if (metrics.totalValue > 0 && userId) {
+        // Async snapshot save - don't block UI
+        savePortfolioSnapshot(metrics.totalValue, userId).catch(err => 
+          console.warn('Failed to save portfolio snapshot:', err)
+        )
       }
     } catch (error) {
       console.error('Error updating prices:', error)
@@ -151,30 +276,7 @@ export const PortfolioProvider = ({ children }) => {
       setPriceLoading(false)
       setIsLoadingPrices(false)
     }
-  }, [coins, setIsLiveData, setIsLoadingPrices, setLastUpdate, setApiStatusSource])
-
-  /**with dynamic interval
-    intervalRef.current = setInterval(() => {
-      fetchCurrentPrices()
-    }, refreshInterval)
-
-    // Cleanup interval on unmount or when interval changes
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [fetchCurrentPrices, refreshInterval]) // Re-run when fetchCurrentPrices or refreshInterval changes
-      fetchCurrentPrices()
-    }, PRICE_REFRESH_INTERVAL)
-
-    // Cleanup interval on unmount
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [fetchCurrentPrices]) // Re-run when fetchCurrentPrices changes (which happens when coins change)
+  }, [coins, session, setIsLiveData, setIsLoadingPrices, setLastUpdate, setApiStatusSource])
 
   /**
    * Manual refresh trigger
@@ -183,9 +285,15 @@ export const PortfolioProvider = ({ children }) => {
     fetchCurrentPrices()
   }, [fetchCurrentPrices])
 
-  const addCoin = (coin) => {
+  const addCoin = async (coin) => {
     try {
       const coinIdToCheck = coin.coinId || getCoinId(coin.symbol)
+      const userId = session?.user?.id
+      
+      if (!userId) {
+        console.error('User must be logged in to add coins')
+        return false
+      }
       
       // Check if coin already exists in portfolio (by coinId or symbol)
       const existingCoinIndex = coins.findIndex(c => 
@@ -194,9 +302,7 @@ export const PortfolioProvider = ({ children }) => {
       )
       
       // Create transaction record
-      const transaction = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
+      const transactionData = {
         coinId: coinIdToCheck,
         symbol: coin.symbol,
         name: coin.name,
@@ -206,8 +312,9 @@ export const PortfolioProvider = ({ children }) => {
         total: coin.quantity * coin.buyPrice
       }
       
-      // Add transaction to history
-      setTransactions(prev => [transaction, ...prev])
+      // Add transaction to Supabase
+      const newTransaction = await transactionService.addTransaction(transactionData, userId)
+      setTransactions(prev => [newTransaction, ...prev])
       
       // Trigger notification for buy action
       addNotification('buy', coin.symbol, coin.quantity, coin.buyPrice)
@@ -226,30 +333,35 @@ export const PortfolioProvider = ({ children }) => {
         // Calculate weighted average buy price
         const avgBuyPrice = ((oldQuantity * oldBuyPrice) + (newQuantity * newBuyPrice)) / totalQuantity
         
-        // Update existing coin
-        const updatedCoin = {
-          ...existingCoin,
-          quantity: totalQuantity,
-          buyPrice: avgBuyPrice,
-          // Keep the existing currentPrice (will be updated by price fetching)
-        }
+        // Update in Supabase
+        const updated = await portfolioService.updateHolding(
+          existingCoin.id,
+          {
+            quantity: totalQuantity,
+            buy_price: avgBuyPrice
+          },
+          userId
+        )
         
         const updatedCoins = [...coins]
-        updatedCoins[existingCoinIndex] = updatedCoin
+        updatedCoins[existingCoinIndex] = updated
         setCoins(updatedCoins)
         
         return true
       } else {
         // Coin doesn't exist - add as new
-        const newCoin = {
-          ...coin,
-          id: Date.now(),
+        const newHoldingData = {
           coinId: coinIdToCheck,
-          currentPrice: coin.buyPrice, // Initially set current price to buy price
+          symbol: coin.symbol,
+          name: coin.name,
+          quantity: coin.quantity,
+          buyPrice: coin.buyPrice,
+          currentPrice: coin.buyPrice,
           priceChange24h: 0
         }
-        const updatedCoins = [...coins, newCoin]
-        setCoins(updatedCoins)
+        
+        const newHolding = await portfolioService.addOrUpdateHolding(newHoldingData, userId)
+        setCoins(prev => [...prev, newHolding])
         
         return true
       }
@@ -265,16 +377,30 @@ export const PortfolioProvider = ({ children }) => {
     ))
   }
 
-  const deleteCoin = (id) => {
-    const coin = coins.find(c => c.id === id)
-    if (coin) {
+  const deleteCoin = async (id) => {
+    try {
+      const coin = coins.find(c => c.id === id)
+      if (!coin) return
+      
+      const userId = session?.user?.id
+      
+      if (!userId) {
+        console.error('User must be logged in to delete coins')
+        return
+      }
+      
       // Trigger notification for delete action
       addNotification('delete', coin.symbol, coin.quantity, 0)
+      
+      // Delete from Supabase
+      await portfolioService.deleteHolding(id, userId)
+      setCoins(coins.filter(c => c.id !== id))
+    } catch (error) {
+      console.error('Error deleting coin:', error)
     }
-    setCoins(coins.filter(coin => coin.id !== id))
   }
 
-  const sellCoin = (id, sellQuantity, sellPrice) => {
+  const sellCoin = async (id, sellQuantity, sellPrice) => {
     try {
       const coin = coins.find(c => c.id === id)
       if (!coin) {
@@ -287,10 +413,15 @@ export const PortfolioProvider = ({ children }) => {
         return false
       }
 
+      const userId = session?.user?.id
+      
+      if (!userId) {
+        console.error('User must be logged in to sell coins')
+        return false
+      }
+      
       // Create SELL transaction record
-      const transaction = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
+      const transactionData = {
         coinId: coin.coinId,
         symbol: coin.symbol,
         name: coin.name,
@@ -300,8 +431,9 @@ export const PortfolioProvider = ({ children }) => {
         total: sellQuantity * (sellPrice || coin.currentPrice)
       }
 
-      // Add transaction to history
-      setTransactions(prev => [transaction, ...prev])
+      // Add transaction to Supabase
+      const newTransaction = await transactionService.addTransaction(transactionData, userId)
+      setTransactions(prev => [newTransaction, ...prev])
 
       // Trigger notification for sell action
       addNotification('sell', coin.symbol, sellQuantity, sellPrice || coin.currentPrice)
@@ -311,12 +443,16 @@ export const PortfolioProvider = ({ children }) => {
 
       if (remainingQuantity <= 0) {
         // Remove coin if quantity reaches zero
+        await portfolioService.deleteHolding(id, userId)
         setCoins(coins.filter(c => c.id !== id))
       } else {
         // Update coin with reduced quantity
-        setCoins(coins.map(c => 
-          c.id === id ? { ...c, quantity: remainingQuantity } : c
-        ))
+        const updated = await portfolioService.updateHolding(
+          id,
+          { quantity: remainingQuantity },
+          userId
+        )
+        setCoins(coins.map(c => c.id === id ? updated : c))
       }
 
       return true
@@ -326,9 +462,25 @@ export const PortfolioProvider = ({ children }) => {
     }
   }
 
-  const changeCurrency = (newCurrency) => {
-    if (SUPPORTED_CURRENCIES[newCurrency]) {
-      setCurrency(newCurrency)
+  const changeCurrency = async (newCurrency) => {
+    if (!SUPPORTED_CURRENCIES[newCurrency]) return
+    
+    setCurrency(newCurrency)
+    
+    // Save to Supabase if user is logged in
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('user_settings')
+          .update({ currency: newCurrency })
+          .eq('user_id', user.id)
+
+        if (error) {
+          console.error('Error updating currency:', error)
+        }
+      } catch (error) {
+        console.error('Error updating currency:', error)
+      }
     }
   }
 
@@ -349,10 +501,12 @@ export const PortfolioProvider = ({ children }) => {
 
   // Save initial snapshot on mount if portfolio has value
   useEffect(() => {
-    if (coins.length > 0) {
+    if (coins.length > 0 && user) {
       const metrics = calculatePortfolioMetrics(coins)
       if (metrics.totalValue > 0) {
-        savePortfolioSnapshot(metrics.totalValue)
+        savePortfolioSnapshot(metrics.totalValue, user.id).catch(err => 
+          console.warn('Failed to save initial snapshot:', err)
+        )
       }
     }
   }, []) // Run once on mount
