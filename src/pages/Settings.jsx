@@ -309,7 +309,7 @@ const Settings = () => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">About CoinSight</h2>
           <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-neon-blue border border-neon-blue/30">
-            v1.0 Stable
+            v1.1 Stable
           </span>
         </div>
 
@@ -323,7 +323,7 @@ const Settings = () => {
               </svg>
             </div>
             <span className="text-sm text-gray-400 font-medium flex-1">Version</span>
-            <span className="text-sm text-white font-semibold">1.0.0</span>
+            <span className="text-sm text-white font-semibold">1.1.0</span>
           </div>
 
           {/* Build Date */}

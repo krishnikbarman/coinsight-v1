@@ -91,7 +91,7 @@ const Navbar = ({ toggleSidebar }) => {
                 Coin<span className="text-neon-blue">Sight</span>
               </h1>
               <span className="hidden sm:inline-flex items-center px-2 py-0.5 text-xs font-medium text-neon-blue border border-neon-blue/40 rounded-full bg-neon-blue/5 -mb-1">
-                v1.0
+                v1.1
               </span>
             </div>
             <p className="hidden md:block text-xs text-gray-400">
