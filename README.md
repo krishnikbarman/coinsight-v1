@@ -253,6 +253,12 @@ npm run build
 ### Notifications Panel
 ![Notifications](./screenshots/notifications.png)
 
+### Market Page
+![Market](./screenshots/market.png)
+
+### Price Alerts Page
+![Price Alerts](./screenshots/price-alerts.png)
+
 ### Settings & About
 ![Settings](./screenshots/settings.png)
 
