@@ -5,6 +5,7 @@
 
 import { supabase } from '../supabase/client';
 import { STORAGE_KEYS, getStorageItem } from '../utils/storage';
+import { findCoinIdBySymbol } from './coinService';
 
 /**
  * Get all holdings for the current user
@@ -41,7 +42,9 @@ export const getHoldings = async (userId) => {
       currentPrice: parseFloat(holding.current_price) || 0,
       priceChange24h: parseFloat(holding.price_change_24h) || 0,
       createdAt: holding.created_at,
-      updatedAt: holding.updated_at
+      updatedAt: holding.updated_at,
+      // Use CoinCap.io for crypto icons (more reliable)
+      image: holding.image || `https://assets.coincap.io/assets/icons/${holding.symbol.toLowerCase()}@2x.png`
     }));
 
     return holdings;
@@ -293,5 +296,45 @@ export const migrateLocalStorageToSupabase = async (userId) => {
   } catch (error) {
     console.error('Error migrating to Supabase:', error);
     return false;
+  }
+};
+
+/**
+ * Ensure holding has a valid coin_id (fallback for old data)
+ * @param {Object} holding - Holding object
+ * @param {string} userId - User ID
+ * @returns {Promise<string>} Coin ID
+ */
+export const ensureHoldingHasCoinId = async (holding, userId) => {
+  try {
+    // If coin_id exists, return it
+    if (holding.coinId || holding.coin_id) {
+      return holding.coinId || holding.coin_id;
+    }
+
+    // Try to find coin_id by symbol
+    if (holding.symbol) {
+      console.log(`⚠️ Holding missing coin_id, searching by symbol: ${holding.symbol}`);
+      const coinId = await findCoinIdBySymbol(holding.symbol);
+      
+      if (coinId) {
+        // Update the holding in database with the found coin_id
+        await supabase
+          .from('holdings')
+          .update({ coin_id: coinId })
+          .eq('id', holding.id)
+          .eq('user_id', userId);
+        
+        console.log(`✅ Updated holding ${holding.symbol} with coin_id: ${coinId}`);
+        return coinId;
+      }
+    }
+
+    // Fallback: use symbol as ID (lowercase)
+    console.warn(`⚠️ Could not find coin_id for ${holding.symbol}, using symbol as fallback`);
+    return holding.symbol?.toLowerCase() || 'unknown';
+  } catch (error) {
+    console.error('Error ensuring coin_id:', error);
+    return holding.symbol?.toLowerCase() || 'unknown';
   }
 };

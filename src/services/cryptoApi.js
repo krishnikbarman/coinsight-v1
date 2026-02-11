@@ -6,15 +6,19 @@
 const COINGECKO_API_BASE = 'https://api.coingecko.com/api/v3'
 
 // Rate limiting and retry configuration
-const MAX_RETRIES = 2
-const RETRY_DELAY = 2000 // 2 seconds
-const CACHE_DURATION = 120000 // 2 minutes (increased from 1 min)
-const REQUEST_TIMEOUT = 10000 // 10 seconds
+const MAX_RETRIES = 3
+const BASE_RETRY_DELAY = 1500 // 1.5 seconds
+const CACHE_DURATION = 180000 // 3 minutes (more lenient)
+const REQUEST_TIMEOUT = 25000 // 25 seconds (increased for slow connections)
 
 // Simple in-memory cache
 const priceCache = new Map()
 let lastRequestTime = 0
-const MIN_REQUEST_INTERVAL = 1500 // Minimum 1.5 seconds between requests
+const MIN_REQUEST_INTERVAL = 1200 // Minimum 1.2 seconds between requests (less aggressive)
+
+// Request success tracking
+let consecutiveFailures = 0
+const MAX_CONSECUTIVE_FAILURES = 5
 
 // Map of common coin symbols to CoinGecko IDs
 const COIN_ID_MAP = {
@@ -66,14 +70,21 @@ export const getCoinId = (symbol) => {
 /**
  * Wait for rate limit cooldown
  */
-const waitForRateLimit = () => {
+const waitForRateLimit = async () => {
   const now = Date.now()
   const timeSinceLastRequest = now - lastRequestTime
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-    return new Promise(resolve => setTimeout(resolve, waitTime))
+    console.log(`⏳ Rate limit cooldown: ${waitTime}ms`)
+    await new Promise(resolve => setTimeout(resolve, waitTime))
   }
-  return Promise.resolve()
+}
+
+/**
+ * Add jitter to prevent thundering herd
+ */
+const addJitter = (delay) => {
+  return delay + Math.random() * 0.3 * delay
 }
 
 /**
@@ -110,13 +121,24 @@ export const fetchCurrentPrices = async (coins, currency = 'usd', retryCount = 0
     if (priceCache.has(cacheKey)) {
       const cached = priceCache.get(cacheKey)
       if (isCacheValid(cached)) {
+        console.log('✓ Using cached prices')
         return cached.data
       }
+    }
+
+    // If too many consecutive failures, use cache even if stale
+    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES && priceCache.has(cacheKey)) {
+      const cached = priceCache.get(cacheKey)
+      const age = Math.round((Date.now() - cached.timestamp) / 1000)
+      console.warn(`⚠️ Using stale cache (${age}s old) due to repeated API failures`)
+      return cached.data
     }
 
     // Wait for rate limit if needed
     await waitForRateLimit()
     lastRequestTime = Date.now()
+
+    console.log(`📊 Fetching prices for ${uniqueCoinIds.length} coins...`)
 
     // Fetch prices from CoinGecko with timeout
     const controller = new AbortController()
@@ -137,7 +159,15 @@ export const fetchCurrentPrices = async (coins, currency = 'usd', retryCount = 0
 
     // Handle rate limiting (429)
     if (response.status === 429) {
-      console.warn('Rate limit hit (429). Using cached/mock data.')
+      const retryAfter = response.headers.get('Retry-After')
+      const delay = retryAfter ? parseInt(retryAfter) * 1000 : BASE_RETRY_DELAY * Math.pow(2, retryCount)
+      console.warn(`⚠️ Rate limit (429). Waiting ${Math.round(delay/1000)}s before retry...`)
+      
+      if (retryCount < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, addJitter(delay)))
+        return fetchCurrentPrices(coins, currency, retryCount + 1)
+      }
+      
       throw new Error('RATE_LIMIT_EXCEEDED')
     }
 
@@ -153,14 +183,33 @@ export const fetchCurrentPrices = async (coins, currency = 'usd', retryCount = 0
       timestamp: Date.now()
     })
 
+    // Reset failure counter on success
+    if (consecutiveFailures > 0) {
+      console.log(`✅ API recovered after ${consecutiveFailures} failures`)
+      consecutiveFailures = 0
+    }
+
+    console.log(`✅ Prices fetched successfully`)
     return data
   } catch (error) {
-    console.error('Error fetching current prices:', error)
+    consecutiveFailures++
+    console.error(`❌ Price fetch failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}):`, error.message)
 
     // Retry logic for network errors (not rate limits)
-    if (retryCount < MAX_RETRIES && error.message !== 'RATE_LIMIT_EXCEEDED') {
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
+    if (retryCount < MAX_RETRIES && error.message !== 'RATE_LIMIT_EXCEEDED' && error.name !== 'AbortError') {
+      const delay = BASE_RETRY_DELAY * Math.pow(2, retryCount)
+      console.warn(`⟳ Retry ${retryCount + 1}/${MAX_RETRIES} in ${Math.round(delay/1000)}s...`)
+      await new Promise(resolve => setTimeout(resolve, addJitter(delay)))
       return fetchCurrentPrices(coins, currency, retryCount + 1)
+    }
+
+    // Try to use stale cache as last resort
+    const cacheKey = `${coins.map(c => c.coinId || getCoinId(c.symbol)).join(',')}_${currency}`
+    if (priceCache.has(cacheKey)) {
+      const cached = priceCache.get(cacheKey)
+      const age = Math.round((Date.now() - cached.timestamp) / 1000)
+      console.warn(`⚠️ Using stale cache (${age}s old) as fallback`)
+      return cached.data
     }
 
     throw error

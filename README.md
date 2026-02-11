@@ -1,74 +1,103 @@
-# CoinSight – Crypto Portfolio Analyzer (v1.1)
+# CoinSight v1.2 – Real-Time Crypto Portfolio & Market Intelligence Dashboard 🚀
 
-A professional cryptocurrency portfolio management dashboard with real-time tracking, cloud storage, and advanced analytics. Built with modern web technologies and enterprise-grade security.
+A professional cryptocurrency portfolio management dashboard with real-time tracking, Supabase backend, smart price alerts, market intelligence, and CSV export. Built with modern web technologies and enterprise-grade security.
 
 ## Overview
 
-CoinSight is a production-ready application that enables cryptocurrency investors to monitor, analyze, and manage their portfolios with real-time market data. The platform features secure authentication, cloud database persistence, and comprehensive portfolio analytics with intelligent insights.
+CoinSight empowers cryptocurrency investors to monitor, analyze, and manage their portfolios with real-time market data and intelligent features. The platform leverages Supabase for backend and database, integrates live crypto APIs, and offers advanced analytics, smart price alerts, and seamless CSV export.
 
 ## Features
 
-- **Real-time Portfolio Tracking** - Live cryptocurrency prices with automatic 60-second refresh intervals
-- **Supabase Cloud Storage** - Persistent database storage with cross-device synchronization
-- **Admin Authentication** - Secure email/password authentication with role-based access control
-- **Notification System** - Configurable alerts for price changes and portfolio events
-- **Transaction History** - Complete audit trail of all buy/sell operations
-- **Portfolio Analytics** - Profit/loss tracking, diversification analysis, and health scoring
-- **Secure Row-Level Security** - RLS policies ensure users access only their own data
-- **Cloud Synced Settings** - User preferences and configurations stored in Supabase
-- **Multi-Currency Support** - USD, EUR, and INR with live exchange rates
-- **Interactive Visualizations** - Pie charts and historical performance comparisons
-- **Data Export** - Export portfolio data for external analysis
-- **40+ Cryptocurrencies** - Support for major digital assets
+### Portfolio Management
+- Buy / Sell crypto
+- Transaction history
+- Real-time valuation
+
+### Smart Price Alerts (NEW v1.2) 🔔
+- Above / Below alerts
+- Instant trigger detection
+- Active / Triggered status
+- Notification integration
+- Toggle enable / disable
+
+### Market Section (NEW v1.2) 📈
+- Top 10 cryptocurrencies only
+- Live market overview
+- Coin search
+- Universal coin details modal
+- Price alert from market coins
+
+### Data Export (NEW v1.2) 📤
+- Export portfolio & transactions to CSV from database
+
+### Notifications
+- Portfolio updates
+- Price alert triggers
+
+### Authentication
+- Supabase Auth
+- Secure login
+
+### Additional Highlights
+- Real-time Portfolio Tracking (auto-refresh)
+- Supabase Cloud Storage & Database
+- Admin Authentication (role-based)
+- Transaction History & Audit Trail
+- Portfolio Analytics: Profit/loss, diversification, health scoring
+- Secure Row-Level Security (RLS)
+- Cloud Synced Settings
+- Multi-Currency Support (USD, EUR, INR)
+- Interactive Visualizations
+- 40+ Cryptocurrencies Supported
 
 ## Tech Stack
 
 **Frontend**
-- React 18.3 - Modern UI library
-- Vite 6.0 - Next-generation build tool
-- Tailwind CSS 3.4 - Utility-first styling
+- React 18.3
+- Vite 6.0
+- Tailwind CSS 3.4
 
 **Backend**
-- Supabase - Backend-as-a-Service platform
-- PostgreSQL (Supabase) - Relational database
-- Row-Level Security (RLS) - Data isolation
+- Supabase (Backend & Database)
+- PostgreSQL (Supabase)
+- Row-Level Security (RLS)
 
 **Authentication**
-- Supabase Email/Password - Secure user authentication
+- Supabase Email/Password
 
 **Data Visualization**
-- Recharts 2.10 - React charting library
+- Recharts 2.10
 
 **State Management**
-- React Context API - Global state management
-- React Router DOM 6.21 - Client-side routing
+- React Context API
+- React Router DOM 6.21
 
 **External APIs**
-- CoinGecko API - Real-time cryptocurrency market data
-- ExchangeRate API - Live currency conversion rates
+- CoinGecko API (Real-time crypto data)
+- ExchangeRate API (Live currency rates)
 
 ## Architecture
 
 CoinSight follows a modern three-tier architecture:
 
 ### Frontend Layer
-- **React Components** - Modular UI built with functional components and hooks
-- **Context Providers** - Global state management for auth, portfolio, and notifications
-- **Service Layer** - Abstraction for all backend communication
+- React Components & Hooks
+- Context Providers (auth, portfolio, notifications)
+- Service Layer abstraction
 
 ### Backend Layer
-- **Supabase Client** - Centralized client instance in `/supabase/client.js`
-- **Authentication** - Managed by Supabase Auth with email/password flow
-- **API Services** - Dedicated services for portfolio, transactions, and external APIs
+- Supabase Client (`/supabase/client.js`)
+- Supabase Auth (email/password)
+- API Services (portfolio, transactions, crypto, currency)
 
 ### Database Layer
-- **PostgreSQL Tables**:
-  - `profiles` - User metadata and roles
-  - `holdings` - Current portfolio positions per user
-  - `transactions` - Complete transaction history
-  - `portfolio_snapshots` - Daily portfolio value tracking
-- **Row-Level Security** - Automatic user data isolation with RLS policies
-- **Foreign Keys** - Referential integrity between users and data
+- PostgreSQL Tables:
+  - `profiles` (user metadata)
+  - `holdings` (portfolio positions)
+  - `transactions` (history)
+  - `portfolio_snapshots` (daily value)
+- Row-Level Security (RLS)
+- Foreign Keys
 
 ### Data Flow
 ```
@@ -283,6 +312,15 @@ CoinSight uses Supabase for secure, production-grade authentication.
 - Automatic localStorage to Supabase migration
 - Production-ready architecture
 
+**v1.2 – Real-Time Smart Alerts & Market Intelligence**
+- Smart price alerts (Above/Below)
+- Instant trigger detection
+- Active/Triggered status
+- Notification integration
+- Market section with top 10 coins
+- Data export to CSV
+- Real-time portfolio tracking
+
 ## Known Limitations
 
 - CoinGecko free tier: 50 API calls per minute
@@ -324,4 +362,4 @@ Built with industry-leading technologies and APIs:
 
 ---
 
-**CoinSight v1.1** - Professional Crypto Portfolio Analyzer with Cloud Backend
+**CoinSight v1.2** - Professional Crypto Portfolio Analyzer with Cloud Backend

@@ -22,16 +22,25 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([])
   const [settings, setSettings] = useState({
     portfolioUpdates: true,
-    marketTrends: false
+    marketTrends: false,
+    priceAlertsEnabled: true
   })
   const [loading, setLoading] = useState(true)
+
+  // Debug: Log notification changes
+  useEffect(() => {
+    console.log(`📊  Notifications state updated. Count: ${notifications.length}`)
+    if (notifications.length > 0) {
+      console.log('   Latest notification:', notifications[0])
+    }
+  }, [notifications])
 
   // Load notifications and settings from Supabase when user logs in
   useEffect(() => {
     const loadUserData = async () => {
       if (!user || !session) {
         setNotifications([])
-        setSettings({ portfolioUpdates: true, marketTrends: false })
+        setSettings({ portfolioUpdates: true, marketTrends: false, priceAlertsEnabled: true })
         setLoading(false)
         return
       }
@@ -46,7 +55,7 @@ export const NotificationProvider = ({ children }) => {
         // Load settings from Supabase
         const { data: settingsData, error: settingsError } = await supabase
           .from('user_settings')
-          .select('portfolio_updates, market_trends, currency')
+          .select('portfolio_updates, market_trends, price_alerts_enabled, currency')
           .eq('user_id', user.id)
           .single()
 
@@ -59,6 +68,7 @@ export const NotificationProvider = ({ children }) => {
                 user_id: user.id,
                 portfolio_updates: true,
                 market_trends: false,
+                price_alerts_enabled: true,
                 currency: 'USD'
               })
               .select()
@@ -67,14 +77,16 @@ export const NotificationProvider = ({ children }) => {
             if (newSettings) {
               setSettings({
                 portfolioUpdates: newSettings.portfolio_updates,
-                marketTrends: newSettings.market_trends
+                marketTrends: newSettings.market_trends,
+                priceAlertsEnabled: newSettings.price_alerts_enabled ?? true
               })
             }
           }
         } else if (settingsData) {
           setSettings({
             portfolioUpdates: settingsData.portfolio_updates,
-            marketTrends: settingsData.market_trends
+            marketTrends: settingsData.market_trends,
+            priceAlertsEnabled: settingsData.price_alerts_enabled ?? true
           })
         }
 
@@ -181,6 +193,7 @@ export const NotificationProvider = ({ children }) => {
           user_id: userId,
           portfolio_updates: localSettings.portfolioUpdates !== undefined ? localSettings.portfolioUpdates : true,
           market_trends: localSettings.marketTrends !== undefined ? localSettings.marketTrends : false,
+          price_alerts_enabled: true,
           currency: getStorageItem(STORAGE_KEYS.CURRENCY, 'USD')
         })
 
@@ -223,7 +236,12 @@ export const NotificationProvider = ({ children }) => {
   }
 
   // Generate notification message based on type
-  const generateMessage = (type, coin, quantity, price) => {
+  const generateMessage = (type, coin, quantity, price, customMessage) => {
+    // If custom message provided, use it (for alerts)
+    if (customMessage) {
+      return customMessage;
+    }
+
     const formattedPrice = formatPrice(price)
     
     switch (type) {
@@ -233,36 +251,75 @@ export const NotificationProvider = ({ children }) => {
         return `You sold ${quantity} ${coin} at ${formattedPrice}`
       case 'delete':
         return `You removed ${coin} from portfolio`
+      case 'alert':
+      case 'price_alert':
+        return `Price alert for ${coin} at ${formattedPrice}`
       default:
         return ''
     }
   }
 
-  // Add notification
-  const addNotification = useCallback(async (type, coin, quantity, price) => {
-    // Check if portfolio updates are enabled
-    if (!settings.portfolioUpdates) {
+  // Add notification - supports both old format and new object format
+  const addNotification = useCallback(async (typeOrObject, coin, quantity, price) => {
+    console.log('='.repeat(60))
+    console.log('📥 addNotification called')
+    console.log('   Input:', typeOrObject)
+    
+    // Support for new object format (for alerts)
+    let type, notifCoin, notifQuantity, notifPrice, customMessage;
+    
+    if (typeof typeOrObject === 'object') {
+      // New object format: { type, coin, quantity, price, message }
+      type = typeOrObject.type;
+      notifCoin = typeOrObject.coin;
+      notifQuantity = typeOrObject.quantity || 0;
+      notifPrice = typeOrObject.price || 0;
+      customMessage = typeOrObject.message;
+      console.log('   📦 Using object format')
+      console.log('   Type:', type)
+      console.log('   Coin:', notifCoin)
+      console.log('   Message:', customMessage)
+    } else {
+      // Old format: addNotification(type, coin, quantity, price)
+      type = typeOrObject;
+      notifCoin = coin;
+      notifQuantity = quantity;
+      notifPrice = price;
+      customMessage = null;
+      console.log('   📦 Using legacy format')
+      console.log('   Type:', type)
+      console.log('   Coin:', notifCoin)
+    }
+
+    // Check if portfolio updates are enabled (ALWAYS allow price alerts through)
+    if (type !== 'alert' && type !== 'price_alert' && !settings.portfolioUpdates) {
+      console.log('   ⚠️ Portfolio updates disabled, skipping non-alert notification')
+      console.log('='.repeat(60))
       return // Don't create notification if disabled
     }
 
     if (!user) {
-      console.warn('Cannot add notification: No user logged in')
+      console.error('   ❌ Cannot add notification: No user logged in')
+      console.log('='.repeat(60))
       return
     }
 
-    const message = generateMessage(type, coin, quantity, price)
+    const message = customMessage || generateMessage(type, notifCoin, notifQuantity, notifPrice)
     const timestamp = Date.now()
 
     const notificationData = {
       user_id: user.id,
       type,
-      coin,
-      quantity,
-      price,
+      coin: notifCoin,
+      quantity: notifQuantity,
+      price: notifPrice,
       message,
       read: false,
       created_at: new Date(timestamp).toISOString()
     }
+
+    console.log('   💾 Inserting notification into Supabase')
+    console.log('   📊 Data:', JSON.stringify(notificationData, null, 2))
 
     try {
       // Insert into Supabase
@@ -273,11 +330,19 @@ export const NotificationProvider = ({ children }) => {
         .single()
 
       if (error) {
-        console.error('Error adding notification:', error)
+        console.error('   ❌ Supabase insert error:', error)
+        console.error('   ❌ Error code:', error.code)
+        console.error('   ❌ Error message:', error.message)
+        console.error('   ❌ Error details:', JSON.stringify(error, null, 2))
+        console.log('='.repeat(60))
         return
       }
 
-      // Update local state
+      console.log('   ✅ Notification inserted successfully!')
+      console.log('   ✅ Notification ID:', data.id)
+      console.log('   ✅ Created at:', data.created_at)
+
+      // Update local state immediately
       const newNotification = {
         id: data.id,
         type: data.type,
@@ -289,15 +354,30 @@ export const NotificationProvider = ({ children }) => {
         read: data.read
       }
 
+      console.log('   📋 Adding notification to local state')
+      console.log('   📋 Notification object:', newNotification)
+
       setNotifications(prev => {
+        // Check for duplicates
+        if (prev.some(n => n.id === newNotification.id)) {
+          console.log('   ⚠️ Notification already exists in state, skipping')
+          console.log('='.repeat(60))
+          return prev
+        }
         const updated = [newNotification, ...prev]
+        console.log(`   ✅ Added to state! Total notifications: ${updated.length}`)
+        console.log('='.repeat(60))
         // Limit to MAX_NOTIFICATIONS
         return updated.slice(0, MAX_NOTIFICATIONS)
       })
+
+      console.log('✅ Notification pipeline complete!')
     } catch (error) {
-      console.error('Error adding notification:', error)
+      console.error('   ❌ Exception adding notification:', error)
+      console.error('   ❌ Stack:', error.stack)
+      console.log('='.repeat(60))
     }
-  }, [settings.portfolioUpdates, user])
+  }, [settings.portfolioUpdates, user, generateMessage])
 
   // Mark notification as read
   const markAsRead = useCallback(async (id) => {
@@ -378,6 +458,101 @@ export const NotificationProvider = ({ children }) => {
     return notifications.slice(0, count)
   }, [notifications])
 
+  // Simple toast notification function
+  const showToast = useCallback((message, type = 'info') => {
+    console.log(`🔔 Toast [${type.toUpperCase()}]: ${message}`)
+    // For now, just log - can be enhanced with a UI toast component later
+    // This prevents errors when components try to use showToast
+  }, [])
+
+  // Update settings (called from Settings page)
+  const updateSettings = useCallback((newSettings) => {
+    setSettings(prev => ({ ...prev, ...newSettings }))
+  }, [])
+
+  // Set up Supabase realtime subscription for instant notification updates
+  useEffect(() => {
+    if (!user || !session) {
+      return
+    }
+
+    console.log('='.repeat(60))
+    console.log('🔔 Setting up realtime notification subscription')
+    console.log('   User ID:', user.id)
+    console.log('   Listening for INSERT events on notifications table')
+
+    // Create a channel for realtime notifications
+    const channel = supabase
+      .channel('notifications-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('='.repeat(60))
+          console.log('🔔 ⭐ NEW NOTIFICATION RECEIVED VIA REALTIME!')
+          console.log('   Event:', payload.eventType)
+          console.log('   Table:', payload.table)
+          console.log('   Payload new:', JSON.stringify(payload.new, null, 2))
+          
+          // Add new notification to state
+          const newNotification = {
+            id: payload.new.id,
+            type: payload.new.type,
+            coin: payload.new.coin,
+            quantity: parseFloat(payload.new.quantity),
+            price: parseFloat(payload.new.price),
+            message: payload.new.message,
+            timestamp: new Date(payload.new.created_at).getTime(),
+            read: payload.new.read
+          }
+
+          console.log('   📊 Notification object:', newNotification)
+
+          setNotifications(prev => {
+            // Check if notification already exists (prevent duplicates)
+            if (prev.some(n => n.id === newNotification.id)) {
+              console.log('   ⚠️ Notification already exists in state, skipping duplicate')
+              console.log('='.repeat(60))
+              return prev
+            }
+            const updated = [newNotification, ...prev]
+            console.log(`   ✅ Added to state via realtime! Total notifications: ${updated.length}`)
+            console.log('='.repeat(60))
+            return updated.slice(0, MAX_NOTIFICATIONS)
+          })
+        }
+      )
+      .subscribe((status) => {
+        console.log('   📡 Subscription status:', status)
+        if (status === 'SUBSCRIBED') {
+          console.log('   ✅ Successfully subscribed to notifications!')
+          console.log('   ✅ Will receive realtime updates for user:', user.id)
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('   ❌ Subscription failed with CHANNEL_ERROR')
+        } else if (status === 'TIMED_OUT') {
+          console.error('   ❌ Subscription timed out')
+        } else if (status === 'CLOSED') {
+          console.log('   🚫 Subscription closed')
+        }
+        console.log('='.repeat(60))
+      })
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('='.repeat(60))
+      console.log('🔕 Cleaning up notification subscription')
+      console.log('   Removing channel...')
+      supabase.removeChannel(channel)
+      console.log('   ✅ Channel removed')
+      console.log('='.repeat(60))
+    }
+  }, [user, session])
+
   const value = {
     notifications,
     addNotification,
@@ -387,7 +562,9 @@ export const NotificationProvider = ({ children }) => {
     getUnreadCount,
     getLatestNotifications,
     getRelativeTime,
+    showToast,
     settings,
+    updateSettings,
     loading
   }
 

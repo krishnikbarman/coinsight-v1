@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
 import Modal from './Modal'
 
-const CoinTable = ({ coins, onSort, sortConfig }) => {
+const CoinTable = ({ coins, onSort, sortConfig, onCoinClick }) => {
   const { formatCurrency, sellCoin, deleteCoin } = usePortfolio()
   const [sellingCoin, setSellingCoin] = useState(null)
   const [sellForm, setSellForm] = useState({
@@ -85,18 +85,23 @@ const CoinTable = ({ coins, onSort, sortConfig }) => {
                   style={{ height: '80px' }}
                 >
                   <td className="py-5 px-6">
-                    <div className="flex items-center space-x-4">
-                      {coin.image && (
-                        <img 
-                          src={coin.image} 
-                          alt={coin.name} 
-                          className="w-10 h-10 rounded-full ring-2 ring-neon-blue/20 group-hover:ring-neon-blue/50 transition-all duration-300"
-                          onError={(e) => e.target.style.display = 'none'}
-                        />
-                      )}
+                    <div 
+                      className="flex items-center space-x-4 cursor-pointer" 
+                      onClick={() => onCoinClick && onCoinClick(coin)}
+                      title="Click to view details"
+                    >
+                      <img 
+                        src={coin.image || `https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png`}
+                        alt={coin.name} 
+                        className="w-10 h-10 rounded-full ring-2 ring-neon-blue/20 group-hover:ring-neon-blue/50 transition-all duration-300"
+                        onError={(e) => {
+                          e.target.onerror = null
+                          e.target.src = `https://via.placeholder.com/40/1a1b23/4fd1c5?text=${coin.symbol.charAt(0)}`
+                        }}
+                      />
                       <div>
-                        <p className="font-bold text-white text-base">{coin.symbol}</p>
-                        <p className="text-sm text-gray-400 opacity-60">{coin.name}</p>
+                        <p className="font-bold text-white text-base hover:text-neon-blue transition-colors">{coin.symbol}</p>
+                        <p className="text-sm text-gray-400 opacity-60 hover:opacity-100 transition-opacity">{coin.name}</p>
                       </div>
                     </div>
                   </td>

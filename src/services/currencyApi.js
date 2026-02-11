@@ -13,31 +13,41 @@ const CACHE_DURATION = 3600000 // 1 hour
 
 /**
  * Supported currencies
+ * NOTE: Only USD is supported in v1. Multi-currency coming soon.
  */
 export const SUPPORTED_CURRENCIES = {
-  USD: { symbol: '$', name: 'US Dollar', code: 'USD' },
-  INR: { symbol: '₹', name: 'Indian Rupee', code: 'INR' },
-  EUR: { symbol: '€', name: 'Euro', code: 'EUR' }
+  USD: { symbol: '$', name: 'US Dollar', code: 'USD' }
+  // INR: { symbol: '₹', name: 'Indian Rupee', code: 'INR' }, // Coming soon
+  // EUR: { symbol: '€', name: 'Euro', code: 'EUR' } // Coming soon
 }
 
 /**
  * Fetch exchange rates from USD base
  * @returns {Promise<Object>} Exchange rates object
+ * NOTE: Disabled for v1 - only USD supported. Returns USD=1 immediately.
  */
 export const fetchExchangeRates = async () => {
+  // DISABLED: Multi-currency support coming soon
+  // For now, only USD is supported, so no API call needed
+  return {
+    base: 'USD',
+    rates: {
+      USD: 1
+    },
+    timestamp: new Date().toISOString(),
+    disabled: true
+  }
+  
+  /* Original multi-currency logic (will be re-enabled in future)
   try {
-    // Check if cache is still valid
     const now = Date.now()
     if (exchangeRatesCache && (now - lastFetchTime) < CACHE_DURATION) {
       return exchangeRatesCache
     }
 
-    // Fetch fresh rates
     const response = await fetch(`${EXCHANGE_API_BASE}/USD`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
+      headers: { 'Accept': 'application/json' }
     })
 
     if (!response.ok) {
@@ -46,40 +56,28 @@ export const fetchExchangeRates = async () => {
 
     const data = await response.json()
     
-    // Cache the rates
     exchangeRatesCache = {
       base: 'USD',
       rates: {
         USD: 1,
-        INR: data.rates.INR || 83.12, // Fallback to approximate value
-        EUR: data.rates.EUR || 0.92   // Fallback to approximate value
+        INR: data.rates.INR || 83.12,
+        EUR: data.rates.EUR || 0.92
       },
       timestamp: data.time_last_updated || new Date().toISOString()
     }
     
     lastFetchTime = now
-    
     return exchangeRatesCache
   } catch (error) {
     console.error('Error fetching exchange rates:', error)
-    
-    // Return fallback rates if API fails
-    if (exchangeRatesCache) {
-      return exchangeRatesCache
-    }
-    
-    // Last resort fallback
     return {
       base: 'USD',
-      rates: {
-        USD: 1,
-        INR: 83.12,
-        EUR: 0.92
-      },
+      rates: { USD: 1, INR: 83.12, EUR: 0.92 },
       timestamp: new Date().toISOString(),
       fallback: true
     }
   }
+  */
 }
 
 /**
@@ -88,8 +86,14 @@ export const fetchExchangeRates = async () => {
  * @param {string} targetCurrency - Target currency code (USD, INR, EUR)
  * @param {Object} rates - Exchange rates object
  * @returns {number} Converted amount
+ * NOTE: Only USD supported in v1, always returns same value
  */
 export const convertCurrency = (amountInUSD, targetCurrency, rates) => {
+  // DISABLED: Multi-currency support coming soon
+  // Always return USD value (no conversion needed)
+  return amountInUSD
+  
+  /* Original multi-currency logic (will be re-enabled in future)
   if (!rates || !rates.rates) {
     console.warn('No exchange rates available, returning USD amount')
     return amountInUSD
@@ -102,6 +106,7 @@ export const convertCurrency = (amountInUSD, targetCurrency, rates) => {
   }
   
   return amountInUSD * rate
+  */
 }
 
 /**

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabase/client';
 import { isAdminEmail } from '../config/admin';
+import { startAlertEngine, stopAlertEngine } from '../services/alertEngine';
 
 const AuthContext = createContext();
 
@@ -44,6 +45,12 @@ export const AuthProvider = ({ children }) => {
           setUser(session?.user ?? null);
           setIsLoggedIn(!!session);
           setIsLoading(false);
+          
+          // Start alert engine if user is logged in
+          if (session?.user) {
+            console.log('🔔 Starting alert engine for user:', session.user.id);
+            startAlertEngine(session.user.id);
+          }
         }
       } catch (error) {
         console.warn('⚠️  Supabase connection failed:', error.message);
@@ -64,11 +71,20 @@ export const AuthProvider = ({ children }) => {
     try {
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           setIsLoggedIn(!!session);
+          
+          // Start/stop alert engine based on auth state
+          if (event === 'SIGNED_IN' && session?.user) {
+            console.log('🔔 Starting alert engine for user:', session.user.id);
+            startAlertEngine(session.user.id);
+          } else if (event === 'SIGNED_OUT') {
+            console.log('🛑 Stopping alert engine');
+            stopAlertEngine();
+          }
         }
       });
       authSubscription = subscription;
@@ -81,6 +97,8 @@ export const AuthProvider = ({ children }) => {
       if (authSubscription) {
         authSubscription.unsubscribe();
       }
+      // Stop alert engine on component unmount
+      stopAlertEngine();
     };
   }, []);
 
@@ -138,6 +156,9 @@ export const AuthProvider = ({ children }) => {
   // Logout user
   const logout = async () => {
     try {
+      // Stop alert engine before logout
+      stopAlertEngine();
+      
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {

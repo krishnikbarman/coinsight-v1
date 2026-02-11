@@ -63,6 +63,11 @@ const Navbar = ({ toggleSidebar }) => {
     navigate('/history')
   }
 
+  const handlePriceAlertsClick = () => {
+    setUserDropdownOpen(false)
+    navigate('/alerts')
+  }
+
   const handleCurrencyChange = (newCurrency) => {
     changeCurrency(newCurrency)
     setCurrencyDropdownOpen(false)
@@ -91,7 +96,7 @@ const Navbar = ({ toggleSidebar }) => {
                 Coin<span className="text-neon-blue">Sight</span>
               </h1>
               <span className="hidden sm:inline-flex items-center px-2 py-0.5 text-xs font-medium text-neon-blue border border-neon-blue/40 rounded-full bg-neon-blue/5 -mb-1">
-                v1.1
+                v1.2
               </span>
             </div>
             <p className="hidden md:block text-xs text-gray-400">
@@ -123,46 +128,10 @@ const Navbar = ({ toggleSidebar }) => {
             )}
           </button>
 
-          {/* Currency Selector Dropdown */}
-          <div className="relative" ref={currencyDropdownRef}>
-            <button
-              onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
-              className="flex items-center space-x-2 px-4 py-2 bg-dark-tertiary rounded-lg hover:bg-neon-blue/10 hover:border-neon-blue/30 border border-transparent transition-all duration-200"
-              title="Change Currency"
-            >
-              <span className="text-sm font-medium">{supportedCurrencies[currency]?.symbol} {currency}</span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {/* Currency Dropdown Menu */}
-            {currencyDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-dark-secondary border border-dark-tertiary rounded-lg shadow-2xl z-50 animate-slideDown">
-                <div className="py-2">
-                  {Object.keys(supportedCurrencies).map((currencyCode) => {
-                    const currencyInfo = supportedCurrencies[currencyCode]
-                    return (
-                      <button
-                        key={currencyCode}
-                        onClick={() => handleCurrencyChange(currencyCode)}
-                        className={`w-full flex items-center justify-between px-4 py-2 text-sm transition-colors ${
-                          currency === currencyCode
-                            ? 'bg-neon-blue/10 text-neon-blue'
-                            : 'text-gray-300 hover:bg-dark-tertiary hover:text-white'
-                        }`}
-                      >
-                        <span className="flex items-center space-x-2">
-                          <span className="text-lg">{currencyInfo.symbol}</span>
-                          <span>{currencyInfo.code}</span>
-                        </span>
-                        <span className="text-xs text-gray-400">{currencyInfo.name}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+          {/* Currency Display (USD Only - v1) */}
+          <div className="flex items-center space-x-2 px-4 py-2 bg-dark-tertiary rounded-lg border border-dark-tertiary">
+            <span className="text-sm font-medium">{supportedCurrencies[currency]?.symbol} {currency}</span>
+            <span className="text-xs text-gray-400 hidden sm:inline">· More currencies soon</span>
           </div>
 
           {/* Live Data Indicator */}
@@ -237,6 +206,15 @@ const Navbar = ({ toggleSidebar }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Transaction History
+                  </button>
+                  <button
+                    onClick={handlePriceAlertsClick}
+                    className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-dark-tertiary hover:text-white transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    Price Alerts
                   </button>
                   <button
                     onClick={handleLogout}

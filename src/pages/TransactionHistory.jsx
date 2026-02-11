@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
+import { useNotifications } from '../context/NotificationContext'
+import { exportTransactionsOnly } from '../utils/exportCsv'
 
 const TransactionHistory = () => {
   const { transactions, currency, supportedCurrencies } = usePortfolio()
+  const { showToast } = useNotifications()
+  const [isExporting, setIsExporting] = useState(false)
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp)
@@ -36,14 +41,47 @@ const TransactionHistory = () => {
     })
   }
 
+  // Handle CSV Export
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true)
+      const result = await exportTransactionsOnly()
+      
+      if (result.success) {
+        showToast(result.message, 'success')
+      } else {
+        showToast(result.message, 'error')
+      }
+    } catch (error) {
+      console.error('❌ Export error:', error)
+      showToast('Failed to export transactions CSV', 'error')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full p-6">
       {/* Fixed Header Section */}
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Transaction History
-        </h1>
-        <p className="text-gray-400">Track all your portfolio activities</p>
+      <div className="flex-shrink-0 mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Transaction History
+          </h1>
+          <p className="text-gray-400">Track all your portfolio activities</p>
+        </div>
+        {/* Export CSV Button */}
+        <button
+          onClick={handleExportCSV}
+          disabled={isExporting || transactions.length === 0}
+          className="group inline-flex items-center justify-center space-x-2 px-6 py-3.5 bg-dark-tertiary text-white rounded-xl hover:bg-neon-green/10 hover:border-neon-green/50 border-2 border-transparent hover:shadow-lg hover:shadow-neon-green/30 transition-all duration-300 font-bold hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+          title="Export transactions and portfolio as CSV"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+        </button>
       </div>
 
       {/* Scrollable Transaction List */}

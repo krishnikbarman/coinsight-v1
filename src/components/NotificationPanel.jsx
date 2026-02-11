@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react'
 import { useNotifications } from '../context/NotificationContext'
 
 const NotificationPanel = ({ isOpen, onClose }) => {
@@ -7,10 +8,42 @@ const NotificationPanel = ({ isOpen, onClose }) => {
     markAllAsRead, 
     clearAll, 
     getUnreadCount,
-    getRelativeTime 
+    getRelativeTime,
+    settings
   } = useNotifications()
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState('portfolio')
+  
   const unreadCount = getUnreadCount()
+
+  // Filter notifications by type
+  const portfolioNotifications = useMemo(() => {
+    return notifications.filter(n => ['buy', 'sell', 'delete'].includes(n.type))
+  }, [notifications])
+
+  const alertNotifications = useMemo(() => {
+    return notifications.filter(n => n.type === 'alert')
+  }, [notifications])
+
+  // Get filtered notifications based on active tab and settings
+  const filteredNotifications = useMemo(() => {
+    // If price alerts are disabled, only show portfolio notifications
+    if (!settings.priceAlertsEnabled) {
+      return portfolioNotifications
+    }
+    // Otherwise, filter based on active tab
+    return activeTab === 'portfolio' ? portfolioNotifications : alertNotifications
+  }, [activeTab, portfolioNotifications, alertNotifications, settings.priceAlertsEnabled])
+
+  // Get unread count per tab
+  const portfolioUnreadCount = useMemo(() => {
+    return portfolioNotifications.filter(n => !n.read).length
+  }, [portfolioNotifications])
+
+  const alertUnreadCount = useMemo(() => {
+    return alertNotifications.filter(n => !n.read).length
+  }, [alertNotifications])
 
   // Get icon and color based on notification type
   const getNotificationStyle = (type) => {
@@ -35,6 +68,13 @@ const NotificationPanel = ({ isOpen, onClose }) => {
           color: 'text-gray-400',
           bgColor: 'bg-gray-500/10',
           borderColor: 'border-gray-500/30'
+        }
+      case 'alert':
+        return {
+          icon: '🔔',
+          color: 'text-yellow-400',
+          bgColor: 'bg-yellow-400/10',
+          borderColor: 'border-yellow-400/30'
         }
       default:
         return {
@@ -88,13 +128,78 @@ const NotificationPanel = ({ isOpen, onClose }) => {
             </button>
           </div>
 
+          {/* Tab Switcher */}
+          {settings.priceAlertsEnabled && (
+          <div className="sticky top-0 z-10 bg-dark-secondary/95 backdrop-blur-sm border-b border-dark-tertiary">
+            <div className="flex items-center gap-2 p-3">
+              {/* Portfolio Tab */}
+              <button
+                onClick={() => setActiveTab('portfolio')}
+                className={`
+                  flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full
+                  font-medium text-sm transition-all duration-300 
+                  ${activeTab === 'portfolio'
+                    ? 'bg-gradient-to-r from-neon-blue to-neon-purple text-white shadow-lg shadow-neon-blue/30'
+                    : 'bg-dark-tertiary/50 text-gray-400 hover:bg-dark-tertiary hover:text-gray-300'
+                  }
+                `}
+              >
+                <span className="text-base">📊</span>
+                <span>Portfolio</span>
+                {portfolioUnreadCount > 0 && (
+                  <span className={`
+                    px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center
+                    ${activeTab === 'portfolio' 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-neon-blue/20 text-neon-blue'
+                    }
+                  `}>
+                    {portfolioUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Alerts Tab */}
+              <button
+                onClick={() => setActiveTab('alerts')}
+                className={`
+                  flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full
+                  font-medium text-sm transition-all duration-300
+                  ${activeTab === 'alerts'
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg shadow-yellow-500/30'
+                    : 'bg-dark-tertiary/50 text-gray-400 hover:bg-dark-tertiary hover:text-gray-300'
+                  }
+                `}
+              >
+                <span className="text-base">🔔</span>
+                <span>Alerts</span>
+                {alertUnreadCount > 0 && (
+                  <span className={`
+                    px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center
+                    ${activeTab === 'alerts'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-yellow-500/20 text-yellow-500'
+                    }
+                  `}>
+                    {alertUnreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+          )}
+
           {/* Actions */}
-          {notifications.length > 0 && (
+          {filteredNotifications.length > 0 && (
             <div className="flex items-center justify-between px-4 py-3 border-b border-dark-tertiary bg-dark-secondary">
               <button
                 onClick={markAllAsRead}
                 className="text-sm text-neon-blue hover:text-neon-blue/80 transition-colors font-medium"
-                disabled={unreadCount === 0}
+                disabled={
+                  !settings.priceAlertsEnabled 
+                    ? portfolioUnreadCount === 0 
+                    : (activeTab === 'portfolio' ? portfolioUnreadCount === 0 : alertUnreadCount === 0)
+                }
               >
                 Mark all as read
               </button>
@@ -117,17 +222,24 @@ const NotificationPanel = ({ isOpen, onClose }) => {
             scrollbarColor: 'rgba(96, 165, 250, 0.6) transparent'
           }}
         >
-          {notifications.length === 0 ? (
+          {filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center min-h-[300px]">
-              <svg className="w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <h3 className="text-lg font-semibold text-white mb-2">No notifications yet</h3>
-              <p className="text-gray-400 text-sm">We'll notify you when you perform portfolio actions</p>
+              <div className="text-6xl mb-4">
+                {!settings.priceAlertsEnabled || activeTab === 'portfolio' ? '📊' : '🔔'}
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                {!settings.priceAlertsEnabled || activeTab === 'portfolio' ? 'No portfolio updates' : 'No price alerts'}
+              </h3>
+              <p className="text-gray-400 text-sm">
+                {!settings.priceAlertsEnabled || activeTab === 'portfolio'
+                  ? 'We\'ll notify you when you perform portfolio actions'
+                  : 'Set up price alerts to track your favorite coins'
+                }
+              </p>
             </div>
           ) : (
             <div className="pb-3">
-              {notifications.map((notification, index) => {
+              {filteredNotifications.map((notification, index) => {
                 const style = getNotificationStyle(notification.type)
                 return (
                   <div key={notification.id}>
@@ -154,7 +266,8 @@ const NotificationPanel = ({ isOpen, onClose }) => {
                             <h4 className={`text-sm font-semibold ${style.color} truncate`}>
                               {notification.type === 'buy' && 'Bought'}
                               {notification.type === 'sell' && 'Sold'}
-                              {notification.type === 'delete' && 'Removed'} {notification.coin}
+                              {notification.type === 'delete' && 'Removed'}
+                              {notification.type === 'alert' && 'Price Alert'} {notification.coin}
                             </h4>
                             {!notification.read && (
                               <span className="w-2 h-2 bg-neon-blue rounded-full flex-shrink-0 ml-2 mt-1 animate-pulse" />
@@ -170,7 +283,7 @@ const NotificationPanel = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                     {/* Subtle divider between notifications */}
-                    {index < notifications.length - 1 && (
+                    {index < filteredNotifications.length - 1 && (
                       <div className="border-b border-white/5" style={{ borderColor: 'rgba(255,255,255,0.05)' }} />
                     )}
                   </div>

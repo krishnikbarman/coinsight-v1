@@ -4,7 +4,6 @@ import PortfolioPieChart from '../charts/PortfolioPieChart'
 import PriceLineChart from '../charts/PriceLineChart'
 import Loader from '../components/Loader'
 import WelcomeScreen from '../components/WelcomeScreen'
-import MarketWidgets from '../components/MarketWidgets'
 import ActivityTimeline from '../components/ActivityTimeline'
 import PerformerCard from '../components/PerformerCard'
 import DiversificationCard from '../components/DiversificationCard'
@@ -12,10 +11,9 @@ import HealthMeter from '../components/HealthMeter'
 import InsightCard from '../components/InsightCard'
 import ComparisonChart from '../components/ComparisonChart'
 import SnapshotCard from '../components/SnapshotCard'
-import TopCoins from '../components/TopCoins'
 
 // Feature Flags - Control visibility of dashboard sections
-const FEATURE_HISTORY_ANALYTICS = false // Historical Performance section staged for v1.1
+const FEATURE_HISTORY_ANALYTICS = false // Historical Performance section staged for v1.2
 
 const Dashboard = () => {
   const { 
@@ -169,17 +167,6 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-
-      {/* Market Widgets */}
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-6">Market Overview</h2>
-        <MarketWidgets />
-        
-        {/* Top Coins - Market Pulse */}
-        <div className="mt-6">
-          <TopCoins />
-        </div>
-      </div>
 
       {/* Activity Timeline - Temporarily Hidden for Cleaner Analytics Focus */}
       {/* <div className="bg-dark-secondary rounded-[20px] border-2 border-dark-tertiary p-8 hover:border-neon-blue/40 transition-all duration-500 hover:shadow-xl hover:shadow-neon-blue/10 animate-fadeIn">

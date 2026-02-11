@@ -147,6 +147,16 @@ export const PortfolioProvider = ({ children }) => {
           transactionService.getTransactions(userId)
         ])
 
+        // Set coin images using CoinCap.io (more reliable than CoinGecko)
+        if (holdings.length > 0) {
+          holdings.forEach(holding => {
+            // Use CoinCap.io as primary image source with fallback
+            if (!holding.image) {
+              holding.image = `https://assets.coincap.io/assets/icons/${holding.symbol.toLowerCase()}@2x.png`
+            }
+          })
+        }
+
         // Update state with fetched data
         setCoins(holdings)
         setTransactions(txs)
@@ -162,8 +172,18 @@ export const PortfolioProvider = ({ children }) => {
     loadPortfolioData()
   }, [session]) // Re-run when session changes
 
-  // Fetch exchange rates on mount and periodically
+  // DISABLED: Exchange rate fetching (only USD supported in v1)
+  // Multi-currency support coming soon
   useEffect(() => {
+    // Set USD-only rates immediately (no API call needed)
+    setExchangeRates({
+      base: 'USD',
+      rates: { USD: 1 },
+      timestamp: new Date().toISOString(),
+      disabled: true
+    })
+    
+    /* Original multi-currency logic (will be re-enabled in future)
     const loadExchangeRates = async () => {
       const rates = await fetchExchangeRates()
       setExchangeRates(rates)
@@ -175,6 +195,7 @@ export const PortfolioProvider = ({ children }) => {
     const ratesInterval = setInterval(loadExchangeRates, 3600000)
     
     return () => clearInterval(ratesInterval)
+    */
   }, [])
 
   /**
@@ -208,7 +229,7 @@ export const PortfolioProvider = ({ children }) => {
         setRefreshInterval(PRICE_REFRESH_INTERVAL)
       }
 
-      // Update coins with new prices
+      // Update coins with new prices and preserve images
       const updatedCoins = coins.map(coin => {
         const coinId = coin.coinId || getCoinId(coin.symbol)
         const priceData = result.data[coinId]
@@ -217,12 +238,16 @@ export const PortfolioProvider = ({ children }) => {
           return {
             ...coin,
             currentPrice: priceData.usd,
-            priceChange24h: priceData.usd_24h_change || 0
+            priceChange24h: priceData.usd_24h_change || 0,
+            image: coin.image || `https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png`
           }
         }
         
-        // Keep existing price if no new data available (e.g., rate limited)
-        return coin
+        // Keep existing price and image if no new data available (e.g., rate limited)
+        return {
+          ...coin,
+          image: coin.image || `https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png`
+        }
       })
 
       setCoins(updatedCoins)
@@ -264,14 +289,15 @@ export const PortfolioProvider = ({ children }) => {
         )
       }
     } catch (error) {
-      console.error('Error updating prices:', error)
+      console.error('⚠️ Error updating prices:', error)
       setIsLiveData(false)
       setApiStatusSource('error')
       setApiStatus({
         success: false,
         source: 'error',
-        error: error.message
+        error: error.message || 'Failed to fetch prices'
       })
+      // Keep existing coins data even if update fails
     } finally {
       setPriceLoading(false)
       setIsLoadingPrices(false)
@@ -344,7 +370,11 @@ export const PortfolioProvider = ({ children }) => {
         )
         
         const updatedCoins = [...coins]
-        updatedCoins[existingCoinIndex] = updated
+        // Preserve image from existing coin or new coin data
+        updatedCoins[existingCoinIndex] = {
+          ...updated,
+          image: existingCoin.image || coin.image
+        }
         setCoins(updatedCoins)
         
         return true
@@ -361,7 +391,8 @@ export const PortfolioProvider = ({ children }) => {
         }
         
         const newHolding = await portfolioService.addOrUpdateHolding(newHoldingData, userId)
-        setCoins(prev => [...prev, newHolding])
+        // Add image to the new holding for display
+        setCoins(prev => [...prev, { ...newHolding, image: coin.image }])
         
         return true
       }

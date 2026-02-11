@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import usePriceAlertChecker from './hooks/usePriceAlerts';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthLayout from './layouts/AuthLayout';
 import AppLayout from './layouts/AppLayout';
@@ -9,8 +10,10 @@ import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Portfolio from './pages/Portfolio';
+import Market from './pages/Market';
 import Settings from './pages/Settings';
 import TransactionHistory from './pages/TransactionHistory';
+import PriceAlerts from './pages/PriceAlerts';
 
 // Root redirect component
 const RootRedirect = () => {
@@ -31,8 +34,13 @@ const RootRedirect = () => {
 };
 
 function App() {
+  // Mount global price alert checker at top level
+  // This runs automatically for authenticated users and checks alerts every 8 seconds
+  usePriceAlertChecker();
+
   return (
-    <Routes>
+    <>
+      <Routes>
       {/* Root redirect */}
       <Route path="/" element={<RootRedirect />} />
 
@@ -70,6 +78,17 @@ function App() {
       />
       
       <Route
+        path="/market"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <Market />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
         path="/settings"
         element={
           <ProtectedRoute>
@@ -90,10 +109,22 @@ function App() {
           </ProtectedRoute>
         }
       />
+      
+      <Route
+        path="/alerts"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <PriceAlerts />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch all - redirect to root */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

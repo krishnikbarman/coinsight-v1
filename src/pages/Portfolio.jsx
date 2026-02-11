@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { usePortfolio } from '../context/PortfolioContext'
+import { useNotifications } from '../context/NotificationContext'
+import { useAuth } from '../context/AuthContext'
+import { ensureHoldingHasCoinId } from '../services/portfolioService'
 import CoinTable from '../components/CoinTable'
 import EmptyState from '../components/EmptyState'
 import AddCoinModal from '../components/AddCoinModal'
+import CoinDetailsModal from '../components/CoinDetailsModal'
 import Loader from '../components/Loader'
+import { exportPortfolioOnly } from '../utils/exportCsv'
 
 // Feature flags
 const ENABLE_EXPORT_BUTTONS = false // Set to true to re-enable PDF, CSV, Share buttons
@@ -11,9 +16,18 @@ const ENABLE_EXPORT_BUTTONS = false // Set to true to re-enable PDF, CSV, Share 
 const Portfolio = () => {
   const { coins, formatCurrency, loading } = usePortfolio()
   const metrics = usePortfolio().calculateMetrics()
+  const { showToast } = useNotifications()
+  const { user } = useAuth()
 
   // Buy Coin Modal state
   const [showAddCoin, setShowAddCoin] = useState(false)
+  
+  // Export loading state
+  const [isExporting, setIsExporting] = useState(false)
+  
+  // Coin Details Modal state
+  const [selectedCoinId, setSelectedCoinId] = useState(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -97,6 +111,47 @@ const Portfolio = () => {
     setCurrentPage(prev => Math.min(totalPages, prev + 1))
   }
 
+  // Handle CSV Export
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true)
+      const result = await exportPortfolioOnly()
+      
+      if (result.success) {
+        showToast(result.message, 'success')
+      } else {
+        showToast(result.message, 'error')
+      }
+    } catch (error) {
+      console.error('❌ Export error:', error)
+      showToast('Failed to export portfolio CSV', 'error')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Handle coin click with fallback for missing coin_id
+  const handleCoinClick = async (coin) => {
+    try {
+      let coinId = coin.coinId || coin.coin_id
+      
+      // Fallback: if coin_id is missing, try to find it
+      if (!coinId && user) {
+        coinId = await ensureHoldingHasCoinId(coin, user.id)
+      }
+      
+      if (coinId) {
+        setSelectedCoinId(coinId)
+        setShowDetailsModal(true)
+      } else {
+        showToast('Unable to load coin details', 'error')
+      }
+    } catch (error) {
+      console.error('Error opening coin details:', error)
+      showToast('Failed to open coin details', 'error')
+    }
+  }
+
   // Show loading spinner while fetching data from Supabase
   if (loading) {
     return (
@@ -114,16 +169,32 @@ const Portfolio = () => {
           <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Portfolio</h1>
           <p className="text-base text-gray-400 opacity-70">Manage your cryptocurrency holdings</p>
         </div>
-        <button
-          onClick={() => setShowAddCoin(true)}
-          className="group inline-flex items-center justify-center space-x-2 px-6 py-3.5 bg-gradient-to-r from-neon-blue to-neon-purple text-white rounded-xl hover:shadow-xl hover:shadow-neon-blue/50 transition-all duration-300 font-bold hover:scale-105"
-          title="Buy Cryptocurrency"
-        >
-          <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Buy Coin</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* Export CSV Button */}
+          <button
+            onClick={handleExportCSV}
+            disabled={isExporting || coins.length === 0}
+            className="group inline-flex items-center justify-center space-x-2 px-6 py-3.5 bg-dark-tertiary text-white rounded-xl hover:bg-neon-green/10 hover:border-neon-green/50 border-2 border-transparent hover:shadow-lg hover:shadow-neon-green/30 transition-all duration-300 font-bold hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+            title="Export portfolio and transactions as CSV"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+          </button>
+          
+          {/* Buy Coin Button */}
+          <button
+            onClick={() => setShowAddCoin(true)}
+            className="group inline-flex items-center justify-center space-x-2 px-6 py-3.5 bg-gradient-to-r from-neon-blue to-neon-purple text-white rounded-xl hover:shadow-xl hover:shadow-neon-blue/50 transition-all duration-300 font-bold hover:scale-105"
+            title="Buy Cryptocurrency"
+          >
+            <svg className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Buy Coin</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -261,7 +332,12 @@ const Portfolio = () => {
         
         {sortedCoins.length > 0 ? (
           <>
-            <CoinTable coins={paginatedCoins} onSort={handleSort} sortConfig={sortConfig} />
+            <CoinTable 
+              coins={paginatedCoins} 
+              onSort={handleSort} 
+              sortConfig={sortConfig}
+              onCoinClick={handleCoinClick}
+            />
             
             {/* Pagination Controls */}
             {totalPages > 1 && (
@@ -323,6 +399,16 @@ const Portfolio = () => {
 
       {/* Buy Coin Modal */}
       <AddCoinModal isOpen={showAddCoin} onClose={() => setShowAddCoin(false)} />
+      
+      {/* Coin Details Modal */}
+      <CoinDetailsModal 
+        isOpen={showDetailsModal}
+        coinId={selectedCoinId}
+        onClose={() => {
+          setShowDetailsModal(false)
+          setSelectedCoinId(null)
+        }}
+      />
     </div>
   )
 }

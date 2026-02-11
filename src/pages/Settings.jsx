@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase/client'
 import { useAuth } from '../context/AuthContext'
+import { useNotifications } from '../context/NotificationContext'
 import { resetAppData } from '../utils/storage'
 import * as portfolioService from '../services/portfolioService'
 import * as transactionService from '../services/transactionService'
@@ -8,13 +9,20 @@ import { getPortfolioHistory } from '../utils/historyUtils'
 
 const Settings = () => {
   const { user, session } = useAuth()
+  const { updateSettings } = useNotifications()
   const [loading, setLoading] = useState(true)
   
   // Load notification preferences from Supabase
   const [notifications, setNotifications] = useState({
     portfolioUpdates: true,
-    marketTrends: false
+    marketTrends: false,
+    priceAlertsEnabled: true
   })
+
+  // Debug: Log notification state changes
+  useEffect(() => {
+    console.log('🔔 Notifications state updated:', notifications)
+  }, [notifications])
 
   // Load settings from Supabase when component mounts
   useEffect(() => {
@@ -27,7 +35,7 @@ const Settings = () => {
       try {
         const { data, error } = await supabase
           .from('user_settings')
-          .select('portfolio_updates, market_trends')
+          .select('portfolio_updates, market_trends, price_alerts_enabled')
           .eq('user_id', user.id)
           .single()
 
@@ -40,6 +48,7 @@ const Settings = () => {
                 user_id: user.id,
                 portfolio_updates: true,
                 market_trends: false,
+                price_alerts_enabled: true,
                 currency: 'USD'
               })
               .select()
@@ -48,16 +57,19 @@ const Settings = () => {
             if (newSettings) {
               setNotifications({
                 portfolioUpdates: newSettings.portfolio_updates,
-                marketTrends: newSettings.market_trends
+                marketTrends: newSettings.market_trends,
+                priceAlertsEnabled: newSettings.price_alerts_enabled ?? true
               })
             }
           } else {
             console.error('Error loading settings:', error)
           }
         } else if (data) {
+          console.log('📊 Loaded settings from Supabase:', data)
           setNotifications({
             portfolioUpdates: data.portfolio_updates,
-            marketTrends: data.market_trends
+            marketTrends: data.market_trends,
+            priceAlertsEnabled: data.price_alerts_enabled ?? true
           })
         }
       } catch (error) {
@@ -74,8 +86,15 @@ const Settings = () => {
   const handleNotificationToggle = async (key, comingSoon) => {
     if (comingSoon || !user) return // Prevent interaction with coming soon features
     
+    console.log(`🔄 Toggle clicked: ${key}, current value:`, notifications[key])
+    
     const newValue = !notifications[key]
-    const dbKey = key === 'portfolioUpdates' ? 'portfolio_updates' : 'market_trends'
+    let dbKey
+    if (key === 'portfolioUpdates') dbKey = 'portfolio_updates'
+    else if (key === 'marketTrends') dbKey = 'market_trends'
+    else if (key === 'priceAlertsEnabled') dbKey = 'price_alerts_enabled'
+    
+    console.log(`💾 Updating ${dbKey} to:`, newValue)
     
     try {
       const { error } = await supabase
@@ -88,7 +107,16 @@ const Settings = () => {
         return
       }
 
+      console.log('✅ Database updated successfully')
+
+      // Update local state
       setNotifications(prev => ({ ...prev, [key]: newValue }))
+      
+      // Update global notification context state for real-time UI updates
+      if (key === 'priceAlertsEnabled') {
+        updateSettings({ priceAlertsEnabled: newValue })
+        console.log('✅ Context updated with priceAlertsEnabled:', newValue)
+      }
     } catch (error) {
       console.error('Error updating settings:', error)
     }
@@ -97,12 +125,12 @@ const Settings = () => {
   // V1 Notification Configuration
   const notificationConfig = [
     {
-      key: 'priceAlerts',
+      key: 'priceAlertsEnabled',
       title: 'Price Alerts',
-      description: 'Price alert feature will be available in a future update.',
-      enabled: false,
+      description: 'Show or hide price alert notifications in the notifications panel.',
+      enabled: notifications.priceAlertsEnabled,
       alwaysOn: false,
-      comingSoon: true
+      comingSoon: false
     },
     {
       key: 'portfolioUpdates',
@@ -121,6 +149,9 @@ const Settings = () => {
       comingSoon: true
     }
   ]
+
+  // Debug: Log config to verify it's reactive
+  console.log('⚙️ Notification Config (Price Alerts enabled):', notificationConfig[0].enabled)
 
   const handleResetAppData = async () => {
     if (!user) {
@@ -278,6 +309,27 @@ const Settings = () => {
         </div>
       </div>
 
+      {/* Currency Settings */}
+      <div className="bg-dark-secondary rounded-xl border border-dark-tertiary p-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-white mb-2">Currency</h2>
+          <p className="text-sm text-gray-400">Display preferences for monetary values</p>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-dark-tertiary/60 rounded-lg">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium text-white">USD – United States Dollar</h3>
+            </div>
+            <p className="text-sm text-gray-400">
+              More currencies coming soon in future updates.
+            </p>
+          </div>
+          <div className="flex items-center justify-center ml-4">
+            <span className="text-2xl">💵</span>
+          </div>
+        </div>
+      </div>
+
       {/* Data Management */}
       <div className="bg-dark-secondary rounded-xl border border-dark-tertiary p-6">
         <div className="mb-6">
@@ -309,7 +361,7 @@ const Settings = () => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">About CoinSight</h2>
           <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-neon-blue/20 to-neon-purple/20 text-neon-blue border border-neon-blue/30">
-            v1.1 Stable
+            v1.2 Stable
           </span>
         </div>
 
@@ -323,7 +375,7 @@ const Settings = () => {
               </svg>
             </div>
             <span className="text-sm text-gray-400 font-medium flex-1">Version</span>
-            <span className="text-sm text-white font-semibold">1.1.0</span>
+            <span className="text-sm text-white font-semibold">1.2.0</span>
           </div>
 
           {/* Build Date */}
